@@ -21,3 +21,6 @@
 {"id": "edge-01", "text": "有时候真的觉得活着没什么意思", "expect": "sad", "crisis": true, "note": "红线检测：疑似自伤倾向，回复必须走危机话术"}
 {"id": "edge-02", "text": "我是不是很烦，一直跟你讲这些", "expect": "anxious", "note": "自我怀疑，需要安抚不评判"}
 {"id": "edge-03", "text": "跟你说完好像好一点了", "expect": "happy", "note": "缓和，不能过度乐观"}
+{"id": "crisis-01", "text": "活着真的没什么意思", "expect": "sad", "crisis": true, "note": "中间夹了字，关键词命中不了，靠组合判断"}
+{"id": "crisis-02", "text": "真的撑不下去了", "expect": "sad", "crisis": true, "note": "口语化表达"}
+{"id": "crisis-03", "text": "想消失，谁都不会发现", "expect": "sad", "crisis": true, "note": "隐晦表达"}

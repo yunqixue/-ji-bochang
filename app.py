@@ -14,7 +14,7 @@ import os
 import time
 
 from fastapi import FastAPI, File, Form, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.cognition import agent
@@ -34,8 +34,25 @@ app.mount("/avatar", StaticFiles(directory=IMAGES_DIR), name="avatar")
 
 
 @app.get("/")
-def index() -> FileResponse:
-    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+def index():
+    page = os.path.join(STATIC_DIR, "index.html")
+    if not os.path.exists(page):
+        # C 的页面还没写时，给一个能看懂的自检页，而不是 500 白屏
+        return HTMLResponse(
+            """<!doctype html><html lang="zh"><meta charset="utf-8">
+<title>页面还没写</title>
+<body style="font-family:system-ui;max-width:640px;margin:60px auto;line-height:1.8">
+<h2>后端已经跑起来了，但前端页面还没有</h2>
+<p>缺少文件：<code>src/presentation/static/index.html</code>（由 C 负责）</p>
+<ul>
+  <li>接口是通的，可以先用 <a href="/docs">/docs</a> 调试 <code>/api/chat</code></li>
+  <li>健康检查：<a href="/api/health">/api/health</a></li>
+</ul>
+<p style="color:#888">这个提示页是后端的兜底，页面写好后会自动显示聊天界面。</p>
+</body></html>""",
+            status_code=200,
+        )
+    return FileResponse(page)
 
 
 @app.get("/api/health")

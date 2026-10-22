@@ -73,9 +73,17 @@ def reset(session_id: str) -> None:
 # ---------------- 红线：危机识别（硬兜底，不依赖模型）----------------
 # 命中即强制走危机话术，模型无权覆盖。三天项目里这条不能靠"祈祷模型记得"。
 CRISIS_KEYWORDS = [
-    "不想活", "活不下去", "活着没意思", "活着没意义", "活着没",
+    "不想活", "活不下去", "活着没意思", "活着没意义", "活着没", "活着有",
     "自杀", "轻生", "自残", "伤害自己", "死了算了", "想死",
     "结束自己", "跳楼", "割腕", "解脱了", "不想醒来",
+    "撑不下去", "熬不下去", "没希望了", "消失就好了", "想消失", "对什么都没",
+]
+
+# 「活着……没什么意思」这类拆开、夹了别的字的说法，靠关键词命中不了，用组合判断兜住
+_LIFE_WORDS = ["活着", "生活", "人生", "活下去", "活下去的意义"]
+_LOSS_WORDS = [
+    "没意思", "没什么意思", "没意义", "没什么意义", "没有意义", "无意义",
+    "没盼头", "没希望", "没动力", "没劲", "好累", "很累", "没意思了",
 ]
 
 # A 可以改话术，改了立刻生效（这个文件归 A）
@@ -87,23 +95,25 @@ FALLBACK_CRISIS = (
 
 
 def is_crisis(text: str) -> bool:
-    """检测自伤/自杀倾向。宁可多触发，也不要漏。"""
+    """检测自伤/自杀倾向。宁可多触发，也不要漏 —— 漏一次的代价远大于多问一句。"""
     if not text:
         return False
     for kw in CRISIS_KEYWORDS:
         if kw in text:
             return True
-    # 「活着…没意思」这类拆开的说法
-    if "活着" in text and ("没意思" in text or "没意义" in text or "没盼头" in text):
+    # 组合判断：「活着……没什么意思」中间夹了字，关键词命中不了
+    if any(w in text for w in _LIFE_WORDS) and any(w in text for w in _LOSS_WORDS):
         return True
     return False
 
 
 def crisis_reply() -> str:
+    """读 A 定稿的危机话术。以 # 开头的行为注释，不会被念出来。"""
     if os.path.exists(CRISIS_REPLY_FILE):
         try:
             with open(CRISIS_REPLY_FILE, "r", encoding="utf-8") as fh:
-                content = fh.read().strip()
+                lines = [ln for ln in fh.read().splitlines() if not ln.strip().startswith("#")]
+            content = " ".join(part.strip() for part in lines if part.strip())
             if content:
                 return content
         except Exception:

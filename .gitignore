@@ -67,3 +67,8 @@ token.txt
 *.token
 api_key*
 note.txt
+# ===== 运行生成物（TTS 语音、评测结果，不进仓库）=====
+src/presentation/static/tts/*.mp3
+src/presentation/static/tts/*.wav
+experiments/result_*.json
+experiments/_*.txt
