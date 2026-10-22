@@ -8,10 +8,12 @@
         powershell -ExecutionPolicy Bypass -File .\scripts\sync.ps1 -PullOnly
         powershell -ExecutionPolicy Bypass -File .\scripts\sync.ps1 -Message "feat: perception api"
         powershell -ExecutionPolicy Bypass -File .\scripts\sync.ps1 -PushOnly
+        powershell -ExecutionPolicy Bypass -File .\scripts\sync.ps1 -Force     (OVERWRITE remote history - use once only)
 #>
 param(
     [switch]$PullOnly,
     [switch]$PushOnly,
+    [switch]$Force,
     [string]$Message = "",
     [string]$Remote = "origin",
     [string]$Branch = "main"
@@ -51,7 +53,8 @@ if (-not ($remotes -contains $Remote)) {
 }
 
 # ---------- pull ----------
-if (-not $PushOnly) {
+# -Force overwrites remote history, so pulling first makes no sense and must be skipped.
+if (-not $PushOnly -and -not $Force) {
     Write-Host "[1/3] pulling $Remote/$Branch ..." -ForegroundColor Cyan
     git pull --rebase --autostash $Remote $Branch
     if ($LASTEXITCODE -ne 0) {
@@ -91,8 +94,13 @@ if (-not $staged) {
 }
 
 # ---------- push ----------
-Write-Host "[3/3] pushing ..." -ForegroundColor Cyan
-git push -u $Remote $Branch
+if ($Force) {
+    Write-Host "[3/3] FORCE pushing (overwriting remote history) ..." -ForegroundColor Magenta
+    git push --force $Remote $Branch
+} else {
+    Write-Host "[3/3] pushing ..." -ForegroundColor Cyan
+    git push -u $Remote $Branch
+}
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[FAIL] push failed. Common causes:" -ForegroundColor Red
     Write-Host "  1. Credentials: username = your Gitee name, password = a PERSONAL ACCESS TOKEN (not your login password)."
@@ -100,6 +108,7 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host "  2. Someone pushed first: rerun this script (it rebases), or run -PullOnly then push again."
     Write-Host "  3. TLS / schannel error: try  git config http.sslBackend openssl"
     Write-Host "  4. Repo does not exist or name mismatch: open the URL in a browser to confirm."
+    Write-Host "  5. Local history was rewritten and the remote rejects it: use the FORCE button once."
     exit 1
 }
 
