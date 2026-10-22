@@ -128,11 +128,13 @@ def _pyttsx3_save(text: str, out_path: str) -> None:
 
 
 def synthesize(text: str, speech_rate: float = 1.0, pitch_shift: float = 0.0,
-               retries: int = 3) -> Optional[str]:
+               retries: int = 2) -> Optional[str]:
     """生成语音，返回可直接给前端的 URL；任何失败都返回 None（不抛异常）。
 
-    retries: 在线合成重试次数。实测每次尝试成功率约 40%（国内连微软服务器不稳），
-             实时对话用 3 次（不让用户等太久）；演示预演可以传 8，慢慢补到全成功。
+    retries: 在线合成重试次数。
+      实时对话默认 2 —— 实测每次尝试成功率约 40%，3 次重试在失败时会把一次对话拖到 18 秒，
+      用户等不起；失败就尽快落到 SAPI 离线兜底。
+      演示预演请传 8 —— 那时不赶时间，可以慢慢补到全部成功。
     """
     text = (text or "").strip()
     if not text:
