@@ -90,17 +90,22 @@ python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple faster-whisper
 ├── assets/prompts/              人设卡、系统提示词、危机话术、生图提示词
 ├── assets/images/               7 张表情图 expr_*.webp（A 出图）
 ├── assets/samples/              测试用例 test_cases.jsonl
-├── experiments/                 自检、评测、预演脚本
+├── experiments/                 自检、冒烟测试、评测、预演脚本
+├── logs/                        对话日志 chat.jsonl（不进仓库）
 └── data/                        数据集与模型（不进仓库，见 MANIFEST.md）
 ```
 
 ---
 
-## 三个工具脚本
+## 四个工具脚本
 
 ```powershell
 # 环境自检：缺依赖 / 缺 Key / 缺表情图 / 端口占用，一眼看清
 python experiments/check_env.py
+
+# 端到端冒烟测试：16 项检查（服务、页面、情绪、记忆、红线、耗时）
+# D3 彩排前一小时跑一遍，比人工点更快发现坏掉的东西
+python experiments/smoke_test.py
 
 # 情绪判断评测：改提示词前后各跑一次，看准确率变化（唯一客观依据）
 python experiments/eval_emotion            # mock 模式，秒出
@@ -110,6 +115,37 @@ python experiments/eval_emotion --llm      # 真实调用 DeepSeek
 $env:DEEPSEEK_TEMPERATURE="0.3"
 python experiments/prewarm_demo --file docs/演示脚本.txt
 ```
+
+---
+
+## 看日志（调提示词必用）
+
+服务窗口里只有 `POST /api/chat 200` 这种访问日志，**看不到它判成什么情绪、回复了什么**。
+所以每轮对话还会追加一行到 `logs/chat.jsonl`（已 gitignore，不进仓库）：
+
+```powershell
+# 最近 20 轮原始记录
+Get-Content logs\chat.jsonl -Tail 20
+
+# 只看回复（改提示词时最实用）
+Get-Content logs\chat.jsonl -Tail 20 | ForEach-Object { ($_ | ConvertFrom-Json).reply }
+
+# 只看有没有偷偷降级成 mock（used_llm 为 false 就是降级了）
+Get-Content logs\chat.jsonl | ForEach-Object {
+    $j = $_ | ConvertFrom-Json
+    if (-not $j.used_llm) { "降级：" + $j.input + " → " + $j.llm_error }
+}
+```
+
+一条记录长这样：
+
+```json
+{"session":"xxx","input":"我今天面试又没过","emotion":"sad","score":0.7,
+ "target_emotion":"empathic","speech_rate":0.9,"pitch_shift":-1.0,
+ "reply":"哎…又没过啊。面完到现在一直想着这事吧？","used_llm":true,"llm_error":"","ts":"..."}
+```
+
+设 `CHAT_LOG=0` 可关闭写日志。
 
 ---
 
