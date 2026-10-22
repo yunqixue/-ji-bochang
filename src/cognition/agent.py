@@ -69,6 +69,31 @@ def reset(session_id: str) -> None:
     MEMORY.pop(session_id, None)
 
 
+# ---- 对话日志：每轮追加一行 JSONL，调提示词时靠它回溯 ----
+LOG_DIR = os.path.join(REPO_ROOT, "logs")
+CHAT_LOG = os.path.join(LOG_DIR, "chat.jsonl")
+
+
+def _log_turn(payload: Dict[str, Any]) -> None:
+    """把一轮对话写进 logs/chat.jsonl（已 gitignore，不进仓库）。
+
+    看日志（PowerShell）：
+        Get-Content logs\\chat.jsonl -Tail 20
+    只看回复：
+        Get-Content logs\\chat.jsonl -Tail 20 | ForEach-Object { ($_ | ConvertFrom-Json).reply }
+    """
+    if os.getenv("CHAT_LOG", "1") == "0":
+        return
+    try:
+        os.makedirs(LOG_DIR, exist_ok=True)
+        record = dict(payload)
+        record["ts"] = time.strftime("%Y-%m-%d %H:%M:%S")
+        with open(CHAT_LOG, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except Exception:
+        pass                                    # 日志失败不能影响对话
+
+
 # ---------------- 没有 API Key 时的 mock ----------------
 # ---------------- 红线：危机识别（硬兜底，不依赖模型）----------------
 # 命中即强制走危机话术，模型无权覆盖。三天项目里这条不能靠"祈祷模型记得"。
@@ -295,6 +320,10 @@ def respond(
             debug={"crisis": True, "used_llm": False},
         )
         remember(session_id, text, reply, "sad")
+        _log_turn({
+            "session": session_id, "input": text, "modality": modality,
+            "emotion": "sad", "crisis": True, "reply": reply, "used_llm": False,
+        })
         return perception, response
 
     emotion, intensity, reply = "neutral", 0.5, MOCK_REPLIES["neutral"]
@@ -383,6 +412,13 @@ def respond(
         response.intensity = max(0.5, intensity)
 
     remember(session_id, text, reply, emotion)
+    _log_turn({
+        "session": session_id, "input": text, "modality": modality,
+        "emotion": emotion, "score": perception.emotion_score,
+        "target_emotion": response.target_emotion,
+        "speech_rate": response.speech_rate, "pitch_shift": response.pitch_shift,
+        "reply": reply, "used_llm": used_llm, "llm_error": llm_error,
+    })
     return perception, response
 
 

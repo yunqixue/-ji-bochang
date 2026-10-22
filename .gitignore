@@ -76,3 +76,5 @@ experiments/_*.txt
 data/models/
 *.onnx
 *.onnx.json
+# ===== 运行日志（不进仓库）=====
+logs/
