@@ -75,10 +75,21 @@ def check_files() -> None:
 
 def check_env_vars() -> None:
     key = os.getenv("DEEPSEEK_API_KEY", "")
+    key_file = os.path.join(REPO_ROOT, "api_key.txt")
     if key.startswith("sk-") and len(key) > 20:
-        add(OK, "DEEPSEEK_API_KEY", "已配置（前 6 位 " + key[:6] + "…）")
+        add(OK, "DEEPSEEK_API_KEY", "环境变量已配置（" + key[:6] + "…）")
+    elif os.path.exists(key_file):
+        try:
+            content = open(key_file, "r", encoding="utf-8-sig").read().strip()
+        except Exception:
+            content = ""
+        if content.startswith("sk-") and len(content) > 20:
+            add(OK, "DEEPSEEK_API_KEY", "api_key.txt 已配置（" + content[:6] + "…）")
+        else:
+            add(WARN, "DEEPSEEK_API_KEY", "api_key.txt 存在但内容不像 Key")
     else:
-        add(WARN, "DEEPSEEK_API_KEY", "没配 → 对话会走 mock 模式（关键词回复，不好听）")
+        add(WARN, "DEEPSEEK_API_KEY", "没配 → 对话走 mock 模式（关键词回复，不好听）")
+        add(WARN, "api_key.txt", "把 Key 粘进项目根目录的 api_key.txt 即可")
 
     model = os.getenv("ASR_MODEL_SIZE", "small")
     add(OK, "ASR 模型尺寸", model)

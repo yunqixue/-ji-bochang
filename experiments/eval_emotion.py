@@ -59,9 +59,10 @@ def main() -> int:
     parser.add_argument("--save", type=str, default=None, help="把结果存成 JSON")
     args = parser.parse_args()
 
-    if args.llm and not os.getenv("DEEPSEEK_API_KEY"):
-        print("❌ 用了 --llm 但没有 DEEPSEEK_API_KEY，先设置环境变量：")
-        print('   $env:DEEPSEEK_API_KEY = "sk-..."')
+    if args.llm and not agent.api_key_configured():
+        print("❌ 用了 --llm 但没找到 Key。两种方式选一个：")
+        print('   1) 环境变量： $env:DEEPSEEK_API_KEY = "sk-..."')
+        print("   2) 把 Key 粘进项目根目录的 api_key.txt（推荐，已 gitignore）")
         return 1
 
     cases = load_cases(args.limit)

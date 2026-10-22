@@ -174,9 +174,34 @@ def _mock_perceive(text: str) -> Tuple[str, float]:
 
 
 # ---------------- LLM 调用 ----------------
+KEY_FILE = os.path.join(REPO_ROOT, "api_key.txt")
+
+
+def _load_api_key() -> str:
+    """优先环境变量，其次项目根目录的 api_key.txt（已 gitignore，不进仓库）。
+
+    这样不熟悉环境变量的同学也能用：把 Key 粘进 api_key.txt 就行。
+    """
+    key = (os.getenv("DEEPSEEK_API_KEY") or "").strip()
+    if key:
+        return key
+    if os.path.exists(KEY_FILE):
+        try:
+            with open(KEY_FILE, "r", encoding="utf-8-sig") as fh:
+                return fh.read().strip()
+        except Exception:
+            return ""
+    return ""
+
+
+def api_key_configured() -> bool:
+    """给自检脚本/评测脚本用：Key 到底有没有（环境变量或 api_key.txt 都算）。"""
+    return bool(_load_api_key())
+
+
 def _build_client():
     """没有 Key 就返回 None（走 mock）。"""
-    key = os.getenv("DEEPSEEK_API_KEY")
+    key = _load_api_key()
     if not key:
         return None
     try:
