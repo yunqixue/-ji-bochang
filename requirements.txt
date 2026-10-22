@@ -1,0 +1,20 @@
+# 三天冲刺版依赖（Python 3.10）
+# 安装：pip install -r requirements.txt
+# 说明见 docs/技术选型与冻结.md —— 三天内不要随意增删依赖
+
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.29
+python-multipart>=0.0.9
+
+# ASR：本地语音识别（首次运行会自动下载 small 模型，建议提前下好放好）
+faster-whisper>=1.0.3
+
+# TTS：微软 edge-tts，免费，中文音色好
+edge-tts>=6.1.9
+
+# LLM：用 openai SDK 调 DeepSeek（base_url 指向 api.deepseek.com）
+openai>=1.30.0
+
+# 可选：Day2 有余力再用音频特征辅助判断情绪（体积较大，先不装也行）
+# librosa>=0.10
+# numpy>=1.24
