@@ -11,7 +11,9 @@
 from __future__ import annotations
 
 import os
+import threading
 import time
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
@@ -26,7 +28,36 @@ REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(REPO_ROOT, "src", "presentation", "static")
 IMAGES_DIR = os.path.join(REPO_ROOT, "assets", "images")
 
-app = FastAPI(title="情感交互智能体", version="0.3")
+
+def _warmup() -> None:
+    """预热：把 LLM 连接和 edge-tts 连接提前建立。
+
+    实测冷启动 LLM 6.2s + TTS 5.4s ≈ 10s，热了之后 3~4s。
+    演示时没人愿意看评委等 10 秒，所以服务一启动就在后台预热。
+    """
+    try:
+        tts.synthesize("嗯，我在听。")
+        print("[warmup] TTS 就绪")
+    except Exception as exc:                      # noqa: BLE001
+        print(f"[warmup] TTS 预热失败（不影响使用）：{exc}")
+    try:
+        if agent.api_key_configured():
+            agent.respond("__warmup__", "你好")
+            agent.reset("__warmup__")
+            print("[warmup] LLM 就绪")
+        else:
+            print("[warmup] 没配 Key，走 mock 模式")
+    except Exception as exc:                      # noqa: BLE001
+        print(f"[warmup] LLM 预热失败（不影响使用）：{exc}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    threading.Thread(target=_warmup, daemon=True).start()
+    yield
+
+
+app = FastAPI(title="情感交互智能体", version="0.3", lifespan=lifespan)
 
 os.makedirs(os.path.join(STATIC_DIR, "tts"), exist_ok=True)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -61,7 +92,7 @@ def health() -> dict:
         "ok": True,
         "asr": asr.available(),
         "tts": tts.available(),
-        "llm": bool(os.getenv("DEEPSEEK_API_KEY")),
+        "llm": agent.api_key_configured(),
     }
 
 

@@ -237,6 +237,35 @@ def _parse_json(raw: str) -> Optional[Dict[str, Any]]:
         return None
 
 
+def _build_messages(mem: Dict[str, Any], text: str) -> List[Dict[str, str]]:
+    """组装消息。
+
+    ★ 关键坑：不能把历史回复当成 assistant 消息塞回去。
+      因为历史里存的是纯文本回复，模型看到"自己上一轮输出的是纯文本"，
+      就会模仿纯文本、不再输出 JSON —— 表现为「第 1 轮正常，第 2 轮开始悄悄降级成 mock」。
+      所以历史一律放进 system，并明确禁止模仿其格式。
+    """
+    parts: List[str] = [_system_prompt()]
+
+    if mem.get("summary"):
+        parts.append(f"[更早聊过的事]\n{mem['summary']}")
+
+    if mem.get("turns"):
+        lines = []
+        for turn in mem["turns"][-MAX_TURNS:]:
+            lines.append(f"用户：{turn['user']}\n你：{turn['assistant']}")
+        parts.append("[最近的对话，仅作上下文参考]\n" + "\n".join(lines))
+
+    parts.append(
+        "注意：上面「你：」后面的内容是给人看的纯文本，不是输出格式示例。"
+        "本轮你仍然必须只输出那个 JSON 对象。"
+    )
+    return [
+        {"role": "system", "content": "\n\n".join(parts)},
+        {"role": "user", "content": text},
+    ]
+
+
 def respond(
     session_id: str,
     text: str,
@@ -270,42 +299,53 @@ def respond(
 
     emotion, intensity, reply = "neutral", 0.5, MOCK_REPLIES["neutral"]
     used_llm = False
+    llm_error = ""
 
     client = _build_client()
     if client is not None and text:
-        messages: List[Dict[str, str]] = [{"role": "system", "content": _system_prompt()}]
-        if mem["summary"]:
-            messages.append({"role": "system", "content": f"更早聊过的事（供参考）：{mem['summary']}"})
-        for turn in mem["turns"][-MAX_TURNS:]:
-            messages.append({"role": "user", "content": turn["user"]})
-            messages.append({"role": "assistant", "content": turn["assistant"]})
-        messages.append({"role": "user", "content": text})
+        messages = _build_messages(mem, text)
 
         try:
-            resp = client.chat.completions.create(
-                model=os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
-                messages=messages,
-                temperature=0.8,
-                max_tokens=200,
-                response_format={"type": "json_object"},
-            )
-            data = _parse_json(resp.choices[0].message.content or "") or {}
+            data: Dict[str, Any] = {}
+            last_error = ""
+            # 失败一次就降级成 mock 会让回复突然"变傻"，演示时很难看。
+            # 所以先重试一次，并把失败原因记录下来（debug + 日志）。
+            for attempt in range(2):
+                try:
+                    resp = client.chat.completions.create(
+                        model=os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
+                        messages=messages,
+                        # 演示时可以调低（0.3）让回复更稳定、更容易命中 TTS 缓存
+                        temperature=float(os.getenv("DEEPSEEK_TEMPERATURE", "0.8")),
+                        max_tokens=200,
+                        response_format={"type": "json_object"},
+                    )
+                    data = _parse_json(resp.choices[0].message.content or "") or {}
+                    if data.get("reply"):
+                        break
+                    last_error = "模型返回里没有 reply 字段"
+                except Exception as exc:                 # noqa: BLE001
+                    last_error = f"{type(exc).__name__}: {exc}"[:160]
+                    if attempt == 0:
+                        time.sleep(0.3)
+                    continue
+
+            if not data.get("reply"):
+                raise ValueError(last_error or "模型没有返回有效内容")
+
             emotion = str(data.get("emotion", "neutral")).strip().lower()
             reply = str(data.get("reply", "")).strip()
             intensity = float(data.get("intensity", 0.6))
             if emotion not in EMOTIONS:
                 emotion = "neutral"
-            if not reply:
-                raise ValueError("模型没给回复")
             used_llm = True
         except Exception as exc:                      # noqa: BLE001
-            # 失败不抛给用户，降级到 mock，保证演示不中断
+            # 失败不抛给用户，降级到 mock，保证演示不中断；但要留下痕迹
+            print(f"[LLM] 调用失败，已降级为 mock：{type(exc).__name__}: {exc}")
             emotion, intensity = _mock_perceive(text)
             reply = MOCK_REPLIES.get(emotion, MOCK_REPLIES["neutral"])
             used_llm = False
-            intensity = 0.5
-            modality = modality  # 保留原值，仅作标记
-            _ = exc
+            llm_error = f"{type(exc).__name__}: {exc}"[:160]
     elif text:
         emotion, intensity = _mock_perceive(text)
         reply = MOCK_REPLIES.get(emotion, MOCK_REPLIES["neutral"])
@@ -337,7 +377,7 @@ def respond(
         reply_text=reply,
         emotion=target,
         memory_used=memory_used,
-        debug={"used_llm": used_llm, "user_emotion": emotion},
+        debug={"used_llm": used_llm, "user_emotion": emotion, "llm_error": llm_error},
     )
     if target == "happy":
         response.intensity = max(0.5, intensity)
