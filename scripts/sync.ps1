@@ -59,9 +59,18 @@ if (-not $PushOnly -and -not $Force) {
     $headBefore = (git rev-parse HEAD)
     git pull --rebase --autostash $Remote $Branch
     if ($LASTEXITCODE -ne 0) {
+        $unmerged = @(git diff --name-only --diff-filter=U 2>$null)
+        if ($unmerged.Count -gt 0) {
+            Write-Host "[CONFLICT] pull stopped: these files were changed by both sides -" -ForegroundColor Red
+            $unmerged | ForEach-Object { Write-Host "           $_" -ForegroundColor Red }
+            Write-Host "       Do NOT edit them by hand if you are unsure. Tell the team lead." -ForegroundColor Yellow
+            Write-Host "       To give up and return to the pre-pull state:" -ForegroundColor Yellow
+            Write-Host "       git rebase --abort"
+            exit 2
+        }
         Write-Host "[FAIL] pull failed. If this is the very FIRST push, the remote repo is probably empty -" -ForegroundColor Red
         Write-Host "       that is expected: rerun with -PushOnly to publish your initial commit." -ForegroundColor Yellow
-        Write-Host "       Otherwise resolve the conflict inside YOUR OWN module, then:" -ForegroundColor Yellow
+        Write-Host "       Otherwise the local changes could not be rebased automatically." -ForegroundColor Yellow
         Write-Host "       git add -A ; git rebase --continue"
         exit 1
     }
