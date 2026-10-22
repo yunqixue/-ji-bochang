@@ -70,13 +70,58 @@ def reset(session_id: str) -> None:
 
 
 # ---------------- 没有 API Key 时的 mock ----------------
+# ---------------- 红线：危机识别（硬兜底，不依赖模型）----------------
+# 命中即强制走危机话术，模型无权覆盖。三天项目里这条不能靠"祈祷模型记得"。
+CRISIS_KEYWORDS = [
+    "不想活", "活不下去", "活着没意思", "活着没意义", "活着没",
+    "自杀", "轻生", "自残", "伤害自己", "死了算了", "想死",
+    "结束自己", "跳楼", "割腕", "解脱了", "不想醒来",
+]
+
+# A 可以改话术，改了立刻生效（这个文件归 A）
+CRISIS_REPLY_FILE = os.path.join(REPO_ROOT, "assets", "prompts", "crisis_reply.txt")
+FALLBACK_CRISIS = (
+    "听起来你现在真的很难受，我也挺担心你的。愿意先跟我说说现在是什么情况吗？"
+    "如果那些念头很强烈，请先联系一个你信得过的人，或者打心理援助热线 12356，那边有人能马上陪你。"
+)
+
+
+def is_crisis(text: str) -> bool:
+    """检测自伤/自杀倾向。宁可多触发，也不要漏。"""
+    if not text:
+        return False
+    for kw in CRISIS_KEYWORDS:
+        if kw in text:
+            return True
+    # 「活着…没意思」这类拆开的说法
+    if "活着" in text and ("没意思" in text or "没意义" in text or "没盼头" in text):
+        return True
+    return False
+
+
+def crisis_reply() -> str:
+    if os.path.exists(CRISIS_REPLY_FILE):
+        try:
+            with open(CRISIS_REPLY_FILE, "r", encoding="utf-8") as fh:
+                content = fh.read().strip()
+            if content:
+                return content
+        except Exception:
+            pass
+    return FALLBACK_CRISIS
+
+
 KEYWORDS = {
-    "sad": ["难过", "失落", "哭", "没通过", "失败", "没用", "分手", "分手了", "委屈", "孤独", "累"],
-    "anxious": ["焦虑", "紧张", "睡不着", "担心", "怕", "来不及", "压力", "明天要", "怎么办"],
-    "angry": ["气死", "烦死", "讨厌", "凭什么", "过分", "受不了", "火大"],
-    "happy": ["开心", "高兴", "太好了", "成功了", "通过了", "喜欢", "哈哈"],
-    "surprised": ["居然", "没想到", "真的吗", "竟然", "天啊"],
+    "sad": ["难过", "失落", "哭", "没通过", "失败", "没用", "分手", "委屈", "孤独",
+            "累", "不想说", "没人懂", "一个人", "住院", "算了", "没意思", "难受", "总想起"],
+    "anxious": ["焦虑", "紧张", "睡不着", "担心", "怕", "来不及", "压力", "明天要", "怎么办",
+                "是不是说错", "一直想", "手心出汗", "被裁", "会不会", "汇报", "烦"],
+    "angry": ["气死", "烦死", "讨厌", "凭什么", "过分", "受不了", "火大", "甩我头上", "不是我干的", "过分了"],
+    "happy": ["开心", "高兴", "太好了", "成功", "通过了", "喜欢", "哈哈", "offer", "松了口气",
+              "可爱", "终于", "黏我", "好一点", "太棒"],
+    "surprised": ["居然", "没想到", "真的吗", "竟然", "天啊", "真的假的"],
 }
+
 
 MOCK_REPLIES = {
     "sad": "嗯……听起来真的挺不好受的。是今天发生的哪一段最让你堵得慌？",
@@ -88,11 +133,34 @@ MOCK_REPLIES = {
 }
 
 
+# 平局时的优先级：越容易翻车的情绪排越前
+_PRIORITY = ["angry", "surprised", "anxious", "happy", "sad"]
+
+
 def _mock_perceive(text: str) -> Tuple[str, float]:
+    """打分制匹配：命中词最多的情绪胜出。
+
+    早期用"第一个命中就返回"，结果「你居然一个人去了西藏」被「一个人」判成 sad。
+    打分制能压住这种泛词误伤。
+    """
+    if not text:
+        return "neutral", 0.5
+    scores: Dict[str, int] = {}
     for label, words in KEYWORDS.items():
-        if any(w in text for w in words):
-            return label, 0.7
-    return "neutral", 0.5
+        hit = sum(1 for w in words if w in text)
+        if hit:
+            scores[label] = hit
+    if not scores:
+        return "neutral", 0.5
+
+    best = max(
+        scores.items(),
+        key=lambda kv: (kv[1], -_PRIORITY.index(kv[0]) if kv[0] in _PRIORITY else -99),
+    )
+    label, hit_count = best
+    # 命中越多越自信，但封顶 0.85（规则法不该显得过于确定）
+    confidence = min(0.85, 0.55 + 0.1 * hit_count)
+    return label, round(confidence, 2)
 
 
 # ---------------- LLM 调用 ----------------
@@ -142,6 +210,28 @@ def respond(
     """核心入口：文字进，契约结构出。"""
     text = (text or "").strip()
     mem = get_memory(session_id)
+
+    # ---- 红线优先：命中危机信号，直接锁定话术，不走模型、不许被覆盖 ----
+    if is_crisis(text):
+        reply = crisis_reply()
+        perception = PerceptionResult(
+            text=text,
+            emotion_label="sad",
+            emotion_score=0.9,
+            valence=-0.8,
+            arousal=0.5,
+            modality=modality,
+            raw={"crisis": True},
+        )
+        response = CognitionResponse.from_emotion(
+            reply_text=reply,
+            emotion="empathic",
+            intensity=0.9,
+            memory_used=[],
+            debug={"crisis": True, "used_llm": False},
+        )
+        remember(session_id, text, reply, "sad")
+        return perception, response
 
     emotion, intensity, reply = "neutral", 0.5, MOCK_REPLIES["neutral"]
     used_llm = False

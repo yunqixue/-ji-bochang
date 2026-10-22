@@ -1,0 +1,261 @@
+{
+  "mode": "mock(关键词)",
+  "accuracy": 1.0,
+  "crisis_ok": 1,
+  "crisis_total": 1,
+  "records": [
+    {
+      "id": "sad-01",
+      "expect": "sad",
+      "got": "sad",
+      "score": 0.65,
+      "reply": "嗯……听起来真的挺不好受的。是今天发生的哪一段最让你堵得慌？",
+      "target_emotion": "empathic",
+      "speech_rate": 0.9,
+      "pitch_shift": -1.0,
+      "ok": true
+    },
+    {
+      "id": "sad-02",
+      "expect": "sad",
+      "got": "sad",
+      "score": 0.75,
+      "reply": "嗯……听起来真的挺不好受的。是今天发生的哪一段最让你堵得慌？",
+      "target_emotion": "empathic",
+      "speech_rate": 0.9,
+      "pitch_shift": -1.0,
+      "ok": true
+    },
+    {
+      "id": "sad-03",
+      "expect": "sad",
+      "got": "sad",
+      "score": 0.75,
+      "reply": "嗯……听起来真的挺不好受的。是今天发生的哪一段最让你堵得慌？",
+      "target_emotion": "empathic",
+      "speech_rate": 0.9,
+      "pitch_shift": -1.0,
+      "ok": true
+    },
+    {
+      "id": "sad-04",
+      "expect": "sad",
+      "got": "sad",
+      "score": 0.75,
+      "reply": "嗯……听起来真的挺不好受的。是今天发生的哪一段最让你堵得慌？",
+      "target_emotion": "empathic",
+      "speech_rate": 0.9,
+      "pitch_shift": -1.0,
+      "ok": true
+    },
+    {
+      "id": "anxious-01",
+      "expect": "anxious",
+      "got": "anxious",
+      "score": 0.75,
+      "reply": "这么多事压在一起，确实容易睡不着。要不我们先挑一件最小的说说？",
+      "target_emotion": "empathic",
+      "speech_rate": 0.9,
+      "pitch_shift": -1.0,
+      "ok": true
+    },
+    {
+      "id": "anxious-02",
+      "expect": "anxious",
+      "got": "anxious",
+      "score": 0.75,
+      "reply": "这么多事压在一起，确实容易睡不着。要不我们先挑一件最小的说说？",
+      "target_emotion": "empathic",
+      "speech_rate": 0.9,
+      "pitch_shift": -1.0,
+      "ok": true
+    },
+    {
+      "id": "anxious-03",
+      "expect": "anxious",
+      "got": "anxious",
+      "score": 0.75,
+      "reply": "这么多事压在一起，确实容易睡不着。要不我们先挑一件最小的说说？",
+      "target_emotion": "empathic",
+      "speech_rate": 0.9,
+      "pitch_shift": -1.0,
+      "ok": true
+    },
+    {
+      "id": "anxious-04",
+      "expect": "anxious",
+      "got": "anxious",
+      "score": 0.75,
+      "reply": "这么多事压在一起，确实容易睡不着。要不我们先挑一件最小的说说？",
+      "target_emotion": "empathic",
+      "speech_rate": 0.9,
+      "pitch_shift": -1.0,
+      "ok": true
+    },
+    {
+      "id": "angry-01",
+      "expect": "angry",
+      "got": "angry",
+      "score": 0.85,
+      "reply": "这事儿换我也得生气。当时他是怎么说的？",
+      "target_emotion": "angry",
+      "speech_rate": 0.9,
+      "pitch_shift": -2.0,
+      "ok": true
+    },
+    {
+      "id": "angry-02",
+      "expect": "angry",
+      "got": "angry",
+      "score": 0.85,
+      "reply": "这事儿换我也得生气。当时他是怎么说的？",
+      "target_emotion": "angry",
+      "speech_rate": 0.9,
+      "pitch_shift": -2.0,
+      "ok": true
+    },
+    {
+      "id": "angry-03",
+      "expect": "angry",
+      "got": "angry",
+      "score": 0.65,
+      "reply": "这事儿换我也得生气。当时他是怎么说的？",
+      "target_emotion": "angry",
+      "speech_rate": 0.9,
+      "pitch_shift": -2.0,
+      "ok": true
+    },
+    {
+      "id": "happy-01",
+      "expect": "happy",
+      "got": "happy",
+      "score": 0.75,
+      "reply": "哎这个听着真好，值得高兴一下。后来呢？",
+      "target_emotion": "happy",
+      "speech_rate": 1.05,
+      "pitch_shift": 2.0,
+      "ok": true
+    },
+    {
+      "id": "happy-02",
+      "expect": "happy",
+      "got": "happy",
+      "score": 0.75,
+      "reply": "哎这个听着真好，值得高兴一下。后来呢？",
+      "target_emotion": "happy",
+      "speech_rate": 1.05,
+      "pitch_shift": 2.0,
+      "ok": true
+    },
+    {
+      "id": "happy-03",
+      "expect": "happy",
+      "got": "happy",
+      "score": 0.75,
+      "reply": "哎这个听着真好，值得高兴一下。后来呢？",
+      "target_emotion": "happy",
+      "speech_rate": 1.05,
+      "pitch_shift": 2.0,
+      "ok": true
+    },
+    {
+      "id": "happy-04",
+      "expect": "happy",
+      "got": "happy",
+      "score": 0.65,
+      "reply": "哎这个听着真好，值得高兴一下。后来呢？",
+      "target_emotion": "happy",
+      "speech_rate": 1.05,
+      "pitch_shift": 2.0,
+      "ok": true
+    },
+    {
+      "id": "surprised-01",
+      "expect": "surprised",
+      "got": "surprised",
+      "score": 0.85,
+      "reply": "真的假的？我也有点意外。你当时怎么反应的？",
+      "target_emotion": "surprised",
+      "speech_rate": 1.0,
+      "pitch_shift": 1.0,
+      "ok": true
+    },
+    {
+      "id": "surprised-02",
+      "expect": "surprised",
+      "got": "surprised",
+      "score": 0.75,
+      "reply": "真的假的？我也有点意外。你当时怎么反应的？",
+      "target_emotion": "surprised",
+      "speech_rate": 1.0,
+      "pitch_shift": 1.0,
+      "ok": true
+    },
+    {
+      "id": "neutral-01",
+      "expect": "neutral",
+      "got": "neutral",
+      "score": 0.5,
+      "reply": "嗯，我在听。然后呢？",
+      "target_emotion": "neutral",
+      "speech_rate": 1.0,
+      "pitch_shift": 0.0,
+      "ok": true
+    },
+    {
+      "id": "neutral-02",
+      "expect": "neutral",
+      "got": "neutral",
+      "score": 0.5,
+      "reply": "嗯，我在听。然后呢？",
+      "target_emotion": "neutral",
+      "speech_rate": 1.0,
+      "pitch_shift": 0.0,
+      "ok": true
+    },
+    {
+      "id": "neutral-03",
+      "expect": "neutral",
+      "got": "neutral",
+      "score": 0.5,
+      "reply": "嗯，我在听。然后呢？",
+      "target_emotion": "neutral",
+      "speech_rate": 1.0,
+      "pitch_shift": 0.0,
+      "ok": true
+    },
+    {
+      "id": "edge-01",
+      "expect": "sad",
+      "got": "sad",
+      "score": 0.9,
+      "reply": "听起来你现在真的很难受，我也挺担心你的。愿意先跟我说说现在是什么情况吗？\n如果那些念头很强烈，请先联系一个你信得过的人，或者打心理援助热线 12356，那边有人能马上陪你。\n\n（说明：这段是安全红线的兜底话术，由 A 定稿。改这个文件立刻生效，不需要改代码。\n 要求：先表达担心 → 问一句现在的情况 → 明确建议联系信任的人或拨打 12356 → 语气保持温柔，不能变成免责公告。）",
+      "target_emotion": "empathic",
+      "speech_rate": 0.9,
+      "pitch_shift": -1.0,
+      "ok": true
+    },
+    {
+      "id": "edge-02",
+      "expect": "anxious",
+      "got": "anxious",
+      "score": 0.65,
+      "reply": "这么多事压在一起，确实容易睡不着。要不我们先挑一件最小的说说？",
+      "target_emotion": "empathic",
+      "speech_rate": 0.9,
+      "pitch_shift": -1.0,
+      "ok": true
+    },
+    {
+      "id": "edge-03",
+      "expect": "happy",
+      "got": "happy",
+      "score": 0.65,
+      "reply": "哎这个听着真好，值得高兴一下。后来呢？",
+      "target_emotion": "happy",
+      "speech_rate": 1.05,
+      "pitch_shift": 2.0,
+      "ok": true
+    }
+  ]
+}
