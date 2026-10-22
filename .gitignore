@@ -1,0 +1,60 @@
+# ===== 数据集与大文件（走共享云盘，只登记 MANIFEST.md）=====
+data/*
+!data/MANIFEST.md
+*.bin
+*.ckpt
+*.safetensors
+*.onnx
+*.pth
+*.pt
+*.zip
+*.7z
+*.tar
+*.gz
+*.mp4
+*.mov
+*.wav
+*.mp3
+*.pkl
+*.h5
+
+# ===== 密钥与本地配置 =====
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+secrets/
+.credentials.yaml
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+ipython_history
+
+# ===== Node / 前端 =====
+node_modules/
+dist/
+build/
+.next/
+*.log
+npm-debug.log*
+pnpm-lock.yaml.bak
+
+# ===== 编辑器与系统 =====
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== DSH / 会话 =====
+.dsh/
+*.jsonl.zstd

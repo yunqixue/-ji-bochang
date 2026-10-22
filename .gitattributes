@@ -1,0 +1,31 @@
+# 统一行尾与二进制判定 —— 三人三台 Windows，不设这个会导致"整文件改动"的假冲突
+# 规则：仓库内统一存 LF；PowerShell 脚本在 Windows 上用 CRLF，避免执行异常
+
+* text=auto eol=lf
+
+*.ps1   text eol=crlf
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.ico   binary
+*.pdf   binary
+*.wav   binary
+*.mp3   binary
+*.mp4   binary
+*.mov   binary
+*.zip   binary
+*.7z    binary
+*.bin   binary
+*.ckpt  binary
+*.safetensors binary
+*.onnx  binary
+*.pth   binary
+*.pt    binary
+
+# 锁文件与生成物不做行尾转换，避免每台机器都产生 diff
+*.lock  text eol=lf
