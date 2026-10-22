@@ -77,6 +77,49 @@ def _run_edge(coro):
     return _LOOP.run_until_complete(coro)
 
 
+def _sapi_save(text: str, out_path: str, rate: int = 0) -> None:
+    """用 Windows 自带 SAPI 离线合成（不需要联网，不需要任何 pip 包）。
+
+    实测本机装了 Microsoft Huihui Desktop (zh-CN)，所以离线兜底可行。
+    注意：在某些受限账户/沙箱下 SAPI 会报"当前安全设置下没有可用语音"，
+    此时抛异常，由上层继续兜底。
+    """
+    import subprocess
+    import tempfile
+
+    tmp = tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8")
+    txt_path = tmp.name
+    tmp.write(text)
+    tmp.close()
+
+    script = (
+        "Add-Type -AssemblyName System.Speech;"
+        "$s=New-Object System.Speech.Synthesis.SpeechSynthesizer;"
+        f"$s.Rate={int(rate)};"
+        "$zh=$s.GetInstalledVoices() | Where-Object {$_.VoiceInfo.Culture.Name -like 'zh*'} "
+        "| Where-Object {$_.Enabled} | Select-Object -First 1;"
+        "if($zh){$s.SelectVoice($zh.VoiceInfo.Name)};"
+        f"$s.SetOutputToWaveFile('{out_path}');"
+        f"$t=[System.IO.File]::ReadAllText('{txt_path}',[System.Text.Encoding]::UTF8);"
+        "$s.Speak($t);"
+        "$s.Dispose()"
+    )
+    try:
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
+            capture_output=True, timeout=90,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(result.stderr.decode("utf-8", "ignore")[:200])
+        if not os.path.exists(out_path) or os.path.getsize(out_path) < 1000:
+            raise RuntimeError("SAPI 没有生成有效音频（可能是缺少中文语音包）")
+    finally:
+        try:
+            os.remove(txt_path)
+        except OSError:
+            pass
+
+
 def _pyttsx3_save(text: str, out_path: str) -> None:
     import pyttsx3
     engine = pyttsx3.init()
@@ -115,6 +158,20 @@ def synthesize(text: str, speech_rate: float = 1.0, pitch_shift: float = 0.0,
     except Exception:
         pass                                    # 落到 pyttsx3 兜底
 
+    # 兜底 1：Windows 自带 SAPI（离线，本机已确认装有 Microsoft Huihui zh-CN）
+    try:
+        wav_name = _cache_name(text, speech_rate, pitch_shift, "_sapi.wav")
+        wav_path = os.path.join(OUT_DIR, wav_name)
+        if os.path.exists(wav_path) and os.path.getsize(wav_path) > 1000:
+            return f"/static/tts/{wav_name}"
+        # 契约里的 speech_rate 是倍率，SAPI 的 Rate 是 -10~10 的档位，粗略换算
+        sapi_rate = int(round((float(speech_rate) - 1.0) * 10))
+        _sapi_save(text, wav_path, rate=max(-10, min(10, sapi_rate)))
+        return f"/static/tts/{wav_name}"
+    except Exception:
+        pass
+
+    # 兜底 2：pyttsx3（某些机器上可用）
     try:
         wav_name = _cache_name(text, speech_rate, pitch_shift, ".wav")
         wav_path = os.path.join(OUT_DIR, wav_name)

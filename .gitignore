@@ -72,3 +72,7 @@ src/presentation/static/tts/*.mp3
 src/presentation/static/tts/*.wav
 experiments/result_*.json
 experiments/_*.txt
+# ===== 本地模型与语音包（体积大，不进仓库）=====
+data/models/
+*.onnx
+*.onnx.json
