@@ -56,6 +56,7 @@ if (-not ($remotes -contains $Remote)) {
 # -Force overwrites remote history, so pulling first makes no sense and must be skipped.
 if (-not $PushOnly -and -not $Force) {
     Write-Host "[1/3] pulling $Remote/$Branch ..." -ForegroundColor Cyan
+    $headBefore = (git rev-parse HEAD)
     git pull --rebase --autostash $Remote $Branch
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[FAIL] pull failed. If this is the very FIRST push, the remote repo is probably empty -" -ForegroundColor Red
@@ -63,6 +64,14 @@ if (-not $PushOnly -and -not $Force) {
         Write-Host "       Otherwise resolve the conflict inside YOUR OWN module, then:" -ForegroundColor Yellow
         Write-Host "       git add -A ; git rebase --continue"
         exit 1
+    }
+    # Show WHICH files teammates touched, so a surprise deletion is visible immediately.
+    $headAfter = (git rev-parse HEAD)
+    if ($headBefore -ne $headAfter) {
+        Write-Host "[INFO] this pull changed these files (D=deleted, A=added, M=modified):" -ForegroundColor Yellow
+        git diff --name-status $headBefore $headAfter
+    } else {
+        Write-Host "[INFO] nothing new from teammates." -ForegroundColor DarkGray
     }
 }
 
