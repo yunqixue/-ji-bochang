@@ -58,3 +58,12 @@ desktop.ini
 # ===== DSH / 会话 =====
 .dsh/
 *.jsonl.zstd
+
+# ===== 令牌 / 密钥文件（绝不进仓库）=====
+令牌.txt
+*令牌*
+*token*
+token.txt
+*.token
+api_key*
+note.txt
