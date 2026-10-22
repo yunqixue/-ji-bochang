@@ -11,17 +11,19 @@ type "%LOG%"
 echo.
 echo ----------------------------------------------
 findstr /C:"[OK] pushed" "%LOG%" >nul
-if not errorlevel 1 echo   【成功】代码已经上传到云端，队友可以 pull 到了 & goto :end
+if not errorlevel 1 echo   【成功】代码已经上传到云端 & goto :end
 findstr /C:"Authentication failed" "%LOG%" >nul
 if not errorlevel 1 echo   【失败】用户名或密码填错了。密码要填【私人令牌】，不是登录密码 & goto :end
 findstr /C:"Author identity" "%LOG%" >nul
-if not errorlevel 1 echo   【失败】你还没设置名字和邮箱，把窗口截图发给队长 & goto :end
+if not errorlevel 1 echo   【失败】你还没设置名字和邮箱，见 使用方法.txt 第二篇第 3 步 & goto :end
 findstr /C:"schannel" "%LOG%" >nul
 if not errorlevel 1 echo   【失败】这台电脑的网络加密有问题，把窗口截图发给队长 & goto :end
 findstr /C:"not found" "%LOG%" >nul
 if not errorlevel 1 echo   【失败】仓库地址不对，或者你还没被加进这个仓库 & goto :end
+findstr /C:"rejected" "%LOG%" >nul
+if not errorlevel 1 echo   【失败】别人先上传了。先双击 pull.cmd，再双击本文件 & goto :end
 findstr /C:"push failed" "%LOG%" >nul
-if not errorlevel 1 echo   【失败】别人刚好也上传了，再双击一次本文件即可 & goto :end
+if not errorlevel 1 echo   【失败】别人先上传了。先双击 pull.cmd，再双击本文件 & goto :end
 echo   【未知问题】把整个窗口截图发给队长，不要自己改文件
 :end
 echo ----------------------------------------------
