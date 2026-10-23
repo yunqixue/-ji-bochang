@@ -52,26 +52,31 @@ if (-not ($remotes -contains $Remote)) {
     exit 1
 }
 
-# ---------- pull ----------
+    # ---------- pull ----------
 # -Force overwrites remote history, so pulling first makes no sense and must be skipped.
 if (-not $PushOnly -and -not $Force) {
-    Write-Host "[1/3] pulling $Remote/$Branch ..." -ForegroundColor Cyan
+    Write-Host "[1/3] pulling $Remote/$Branch (merge mode) ..." -ForegroundColor Cyan
     $headBefore = (git rev-parse HEAD)
-    git pull --rebase --autostash $Remote $Branch
+    # 用 --no-rebase（merge）而不是 --rebase。
+    # 原因：rebase 撞车后要继续 git rebase --continue、还可能弹编辑器，三个人都不是 git 老手，
+    #       已经真实卡死过两次（卡在 rebase-merge 状态、pull 都启动不了）。
+    #       merge 撞车后就是普通的 git add + git commit，简单得多。
+    git pull --no-rebase --autostash $Remote $Branch
     if ($LASTEXITCODE -ne 0) {
         $unmerged = @(git diff --name-only --diff-filter=U 2>$null)
         if ($unmerged.Count -gt 0) {
             Write-Host "[CONFLICT] pull stopped: these files were changed by both sides -" -ForegroundColor Red
             $unmerged | ForEach-Object { Write-Host "           $_" -ForegroundColor Red }
-            Write-Host "       Do NOT edit them by hand if you are unsure. Tell the team lead." -ForegroundColor Yellow
-            Write-Host "       To give up and return to the pre-pull state:" -ForegroundColor Yellow
-            Write-Host "       git rebase --abort"
+            Write-Host "       How to fix (3 commands):" -ForegroundColor Yellow
+            Write-Host "       1) open each file, delete the <<<<<<< / ======= / >>>>>>> lines, KEEP BOTH SIDES" -ForegroundColor Yellow
+            Write-Host "       2) git add -A" -ForegroundColor Yellow
+            Write-Host "       3) git commit -m \"merge: resolve conflicts\"" -ForegroundColor Yellow
+            Write-Host "       To give up and return to the pre-pull state:  git merge --abort" -ForegroundColor Yellow
             exit 2
         }
         Write-Host "[FAIL] pull failed. If this is the very FIRST push, the remote repo is probably empty -" -ForegroundColor Red
         Write-Host "       that is expected: rerun with -PushOnly to publish your initial commit." -ForegroundColor Yellow
-        Write-Host "       Otherwise the local changes could not be rebased automatically." -ForegroundColor Yellow
-        Write-Host "       git add -A ; git rebase --continue"
+        Write-Host "       Otherwise see docs/疑难排查.md section 12." -ForegroundColor Yellow
         exit 1
     }
     # Show WHICH files teammates touched, so a surprise deletion is visible immediately.
