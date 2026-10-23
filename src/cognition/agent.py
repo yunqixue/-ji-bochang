@@ -262,6 +262,58 @@ def _parse_json(raw: str) -> Optional[Dict[str, Any]]:
         return None
 
 
+# ---------------- 演示兜底缓存（现场断网也能演）----------------
+# prewarm_demo.py 会写这个文件：{输入原文: {reply, audio_url, emotion, ...}}
+# 模型调不通时先查它 —— 有预置的真实回复和已合成好的音频，演示时听不出差别；
+# 查不到才退到关键词 + 固定模板（那才是最"人机"的兜底）。
+DEMO_CACHE_FILE = os.path.join(REPO_ROOT, "data", "demo_cache.json")
+_DEMO_CACHE: Optional[Dict[str, Any]] = None
+
+
+def _norm_text(s: str) -> str:
+    """归一化：去空格、全角标点转半角、**去掉首尾标点**。
+
+    最后一步很关键：语音识别的输出自带句号（实测识别结果是
+    「我今天面试又没过,感觉挺没用的。」），不去尾标点就和预置的原文匹配不上，
+    断网演示用语音输入时会直接掉到固定模板。
+    """
+    s = (s or "").strip()
+    for a, b in (("，", ","), ("。", "."), ("？", "?"), ("！", "!"), ("：", ":"),
+                 ("；", ";"), ("、", ","), (" ", ""), ("　", "")):
+        s = s.replace(a, b)
+    return s.strip(".,!?;:")
+
+
+def _load_demo_cache() -> Dict[str, Any]:
+    global _DEMO_CACHE
+    if _DEMO_CACHE is None:
+        try:
+            with open(DEMO_CACHE_FILE, "r", encoding="utf-8") as fh:
+                payload = json.load(fh) or {}
+            _DEMO_CACHE = payload.get("entries") or {}
+        except Exception:
+            _DEMO_CACHE = {}
+    return _DEMO_CACHE
+
+
+def demo_cache_status() -> Dict[str, Any]:
+    """给 /api/health 用：预置缓存到底有没有、有几条。"""
+    cache = _load_demo_cache()
+    return {"ready": bool(cache), "entries": len(cache),
+            "offline_mode": os.getenv("DEMO_FALLBACK") == "1"}
+
+
+def _demo_lookup(text: str) -> Optional[Dict[str, Any]]:
+    cache = _load_demo_cache()
+    if not cache or not text:
+        return None
+    key = _norm_text(text)
+    for raw, entry in cache.items():
+        if _norm_text(raw) == key:
+            return entry
+    return None
+
+
 def _build_messages(mem: Dict[str, Any], text: str) -> List[Dict[str, str]]:
     """组装消息。
 
@@ -329,8 +381,13 @@ def respond(
     emotion, intensity, reply = "neutral", 0.5, MOCK_REPLIES["neutral"]
     used_llm = False
     llm_error = ""
+    cached_audio = ""
+    fallback_source = ""
 
-    client = _build_client()
+    # DEMO_FALLBACK=1 时故意不连模型：用来演练「现场断网」，也用来验证兜底链路。
+    offline = os.getenv("DEMO_FALLBACK") == "1"
+    client = None if offline else _build_client()
+
     if client is not None and text:
         messages = _build_messages(mem, text)
 
@@ -369,15 +426,31 @@ def respond(
                 emotion = "neutral"
             used_llm = True
         except Exception as exc:                      # noqa: BLE001
-            # 失败不抛给用户，降级到 mock，保证演示不中断；但要留下痕迹
-            print(f"[LLM] 调用失败，已降级为 mock：{type(exc).__name__}: {exc}")
+            llm_error = f"{type(exc).__name__}: {exc}"[:160]
+            print(f"[LLM] 调用失败：{llm_error}")
+
+    if not used_llm and text:
+        # 兜底一：预置演示缓存（有真实回复 + 已合成音频，演示时听不出差别）
+        cached = _demo_lookup(text)
+        if cached:
+            reply = str(cached.get("reply") or "").strip() or MOCK_REPLIES["neutral"]
+            emotion = str(cached.get("emotion") or "neutral").strip().lower()
+            if emotion not in EMOTIONS:
+                emotion = "neutral"
+            try:
+                intensity = float(cached.get("intensity") or 0.6)
+            except Exception:
+                intensity = 0.6
+            cached_audio = str(cached.get("audio_url") or "")
+            fallback_source = "demo_cache"
+            print(f"[DEMO] 命中预置缓存（{ '离线模式' if offline else '模型不可用' }）：{text[:24]}")
+        else:
+            # 兜底二：关键词 + 固定模板（最"人机"，但至少不中断）
             emotion, intensity = _mock_perceive(text)
             reply = MOCK_REPLIES.get(emotion, MOCK_REPLIES["neutral"])
-            used_llm = False
-            llm_error = f"{type(exc).__name__}: {exc}"[:160]
-    elif text:
-        emotion, intensity = _mock_perceive(text)
-        reply = MOCK_REPLIES.get(emotion, MOCK_REPLIES["neutral"])
+            fallback_source = "mock"
+            if not offline:
+                print(f"[LLM] 已降级为固定模板：{llm_error[:80]}")
 
     # 情绪取值归一
     if emotion not in EMOTIONS:
@@ -406,7 +479,15 @@ def respond(
         reply_text=reply,
         emotion=target,
         memory_used=memory_used,
-        debug={"used_llm": used_llm, "user_emotion": emotion, "llm_error": llm_error},
+        debug={
+            "used_llm": used_llm,
+            "user_emotion": emotion,
+            "llm_error": llm_error,
+            # 兜底来源："" 正常｜"demo_cache" 命中预置缓存｜"mock" 固定模板
+            "fallback_source": fallback_source,
+            # 命中预置缓存时，直接把上次合成好的音频给前端用，省一次在线合成
+            "cached_audio_url": cached_audio,
+        },
     )
     if target == "happy":
         response.intensity = max(0.5, intensity)
@@ -418,6 +499,7 @@ def respond(
         "target_emotion": response.target_emotion,
         "speech_rate": response.speech_rate, "pitch_shift": response.pitch_shift,
         "reply": reply, "used_llm": used_llm, "llm_error": llm_error,
+        "fallback_source": fallback_source,
     })
     return perception, response
 

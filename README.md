@@ -124,6 +124,42 @@ python experiments/prewarm_demo --file docs/演示脚本.txt
 
 ---
 
+## 演示保险：断网也能演
+
+现场断网 / LLM 挂掉时，如果直接退到固定模板，回复会变得重复又机械（最尴尬的情况）。
+所以做了一层**预置缓存兜底**：
+
+```powershell
+# ① 演示前预演：把演示台词跑一遍，同时生成「兜底缓存」
+$env:DEEPSEEK_TEMPERATURE="0.3"
+python experiments/prewarm_demo --file docs/演示脚本.txt
+#    产物：data/demo_cache.json（输入 → 真实回复 + 已合成音频）
+
+# ② 演练断网：故意不连模型，验证兜底链路是否真的能顶住
+$env:DEMO_FALLBACK="1"
+python -m uvicorn app:app --port 8000
+```
+
+**降级顺序**（每层都比上层差，但都不会中断）：
+
+```
+真实模型 → 预置缓存（真实回复 + 已合成音频，听不出差别）→ 固定模板（最机械）
+```
+
+`/api/health` 会报告兜底状态，便于现场确认：
+
+```json
+{"llm": true, "demo_cache": true, "demo_cache_entries": 4, "offline_mode": false}
+```
+
+> 匹配做了归一化：全角/半角标点、空格、首尾句号都不影响命中 ——
+> 因为**语音识别的输出自带句号**，不处理就会匹配不上（实测踩过）。
+>
+> ⚠️ 兜底缓存只对"演示台词里出现的那几句"有效。演示时**照脚本说话**，
+> 临时改词会掉到固定模板。
+
+---
+
 ## 看日志（调提示词必用）
 
 服务窗口里只有 `POST /api/chat 200` 这种访问日志，**看不到它判成什么情绪、回复了什么**。

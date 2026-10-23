@@ -88,11 +88,17 @@ def index():
 
 @app.get("/api/health")
 def health() -> dict:
+    demo = agent.demo_cache_status()
     return {
         "ok": True,
         "asr": asr.available(),
         "tts": tts.available(),
         "llm": agent.api_key_configured(),
+        # 演示兜底：demo_cache=True 表示预置了问答缓存（断网也能演）；
+        # offline_mode=True 表示当前故意不连模型（演练断网 / 验证兜底链路）
+        "demo_cache": demo["ready"],
+        "demo_cache_entries": demo["entries"],
+        "offline_mode": demo["offline_mode"],
     }
 
 
@@ -127,7 +133,12 @@ def chat(
         perception, response = agent.respond(session_id, user_text, modality)
 
         # ---- 3. 表现层：合成语音（失败不算请求失败）----
-        audio_url = tts.synthesize(response.reply_text, response.speech_rate, response.pitch_shift)
+        # 命中演示预置缓存时，直接用上次合成好的音频（已存在 static/tts/），
+        # 不再走在线合成 —— 断网场景下这是唯一能出声的路径。
+        cached_audio = (response.debug or {}).get("cached_audio_url") or ""
+        audio_url = cached_audio or tts.synthesize(
+            response.reply_text, response.speech_rate, response.pitch_shift
+        )
 
         avatar = {
             "expression": response.target_emotion,

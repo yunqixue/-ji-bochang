@@ -23,6 +23,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 import time
@@ -78,6 +79,9 @@ def main() -> int:
     agent.reset(args.session)
     ok_tts = 0
     report_lines = ["# 演示预演记录", "", "由 `python -m experiments.prewarm_demo` 生成。", ""]
+    # 同时生成「演示兜底缓存」：模型调不通 / 现场断网时，agent 会先查这张表，
+    # 用这里存下的真实回复和已合成音频顶上，演示时听不出差别。
+    cache_entries: dict[str, dict] = {}
 
     for i, text in enumerate(lines, 1):
         t0 = time.perf_counter()
@@ -100,6 +104,17 @@ def main() -> int:
         print(f"         语音: {audio_url or '❌ 无（演示时会只显示文字）'}")
         print("-" * 84)
 
+        if audio_url and response.debug.get("used_llm"):
+            cache_entries[text] = {
+                "reply": response.reply_text,
+                "emotion": perception.emotion_label,
+                "intensity": perception.emotion_score,
+                "target_emotion": response.target_emotion,
+                "speech_rate": response.speech_rate,
+                "pitch_shift": response.pitch_shift,
+                "audio_url": audio_url,
+            }
+
         report_lines += [
             f"## 第 {i} 句", "",
             f"- 用户：{text}",
@@ -109,6 +124,22 @@ def main() -> int:
             f"- 语音文件：`{audio_url}`" if audio_url else "- 语音：**生成失败**",
             "",
         ]
+
+    # 写兜底缓存
+    cache_path = os.path.join(REPO_ROOT, "data", "demo_cache.json")
+    os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+    with open(cache_path, "w", encoding="utf-8") as fh:
+        json.dump(
+            {
+                "generated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "note": "由 experiments/prewarm_demo.py 生成；agent 在模型不可用时优先查这张表",
+                "entries": cache_entries,
+            },
+            fh, ensure_ascii=False, indent=2,
+        )
+    print(f"兜底缓存：{len(cache_entries)} 条 → {cache_path}")
+    if len(cache_entries) < len(lines):
+        print("⚠️ 有几句没进缓存（语音合成失败，或那一轮没走真实模型），断网时会退回固定模板。")
 
     print(f"语音生成成功 {ok_tts}/{len(lines)}")
     if ok_tts < len(lines):
