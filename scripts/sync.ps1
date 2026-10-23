@@ -57,10 +57,10 @@ if (-not ($remotes -contains $Remote)) {
 if (-not $PushOnly -and -not $Force) {
     Write-Host "[1/3] pulling $Remote/$Branch (merge mode) ..." -ForegroundColor Cyan
     $headBefore = (git rev-parse HEAD)
-    # 用 --no-rebase（merge）而不是 --rebase。
-    # 原因：rebase 撞车后要继续 git rebase --continue、还可能弹编辑器，三个人都不是 git 老手，
-    #       已经真实卡死过两次（卡在 rebase-merge 状态、pull 都启动不了）。
-    #       merge 撞车后就是普通的 git add + git commit，简单得多。
+# Use --no-rebase (merge) instead of --rebase.
+# Reason: a rebase conflict needs `git rebase --continue` and may open an editor;
+#         neither teammate is a git expert and both really got stuck twice.
+#         A merge conflict is just `git add` + `git commit`.
     git pull --no-rebase --autostash $Remote $Branch
     if ($LASTEXITCODE -ne 0) {
         $unmerged = @(git diff --name-only --diff-filter=U 2>$null)
@@ -76,7 +76,7 @@ if (-not $PushOnly -and -not $Force) {
         }
         Write-Host "[FAIL] pull failed. If this is the very FIRST push, the remote repo is probably empty -" -ForegroundColor Red
         Write-Host "       that is expected: rerun with -PushOnly to publish your initial commit." -ForegroundColor Yellow
-        Write-Host "       Otherwise see docs/疑难排查.md section 12." -ForegroundColor Yellow
+        Write-Host "       Otherwise see docs troubleshooting section 12." -ForegroundColor Yellow
         exit 1
     }
     # Show WHICH files teammates touched, so a surprise deletion is visible immediately.
@@ -119,17 +119,25 @@ if (-not $staged) {
 # ---------- push ----------
 # Capture push output first, then classify. The Chinese explanation lives in push.cmd
 # (GBK encoded); this script stays ASCII-only so PowerShell 5.1 can always parse it.
-# Past bug: push.cmd used findstr to look for "schannel"/"rejected" in the log, but our own
-# hint text contained those words, so a simple "someone pushed first" got reported as
-# "your TLS is broken". Classification now comes from git's real output only.
-if ($Force) {
-    Write-Host "[3/3] FORCE pushing (overwriting remote history) ..." -ForegroundColor Magenta
-    $pushOut = (git push --force $Remote $Branch 2>&1 | Out-String)
-} else {
-    Write-Host "[3/3] pushing ..." -ForegroundColor Cyan
-    $pushOut = (git push -u $Remote $Branch 2>&1 | Out-String)
+# Two past bugs fixed here:
+#   1) push.cmd used findstr to look for "schannel"/"rejected" in the log, but our own hint
+#      text contained those words -> "someone pushed first" got reported as "TLS broken".
+#   2) $ErrorActionPreference="Stop" + `2>&1` turns git's stderr into a *terminating* error,
+#      so the script died at the push line and never reached the classification at all.
+$prevEap = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+try {
+    if ($Force) {
+        Write-Host "[3/3] FORCE pushing (overwriting remote history) ..." -ForegroundColor Magenta
+        $pushOut = (git push --force $Remote $Branch 2>&1 | Out-String)
+    } else {
+        Write-Host "[3/3] pushing ..." -ForegroundColor Cyan
+        $pushOut = (git push -u $Remote $Branch 2>&1 | Out-String)
+    }
+    $pushCode = $LASTEXITCODE
+} finally {
+    $ErrorActionPreference = $prevEap
 }
-$pushCode = $LASTEXITCODE
 Write-Host $pushOut.TrimEnd()
 
 if ($pushCode -ne 0) {
