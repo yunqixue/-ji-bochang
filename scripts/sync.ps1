@@ -103,9 +103,24 @@ if (-not $staged) {
     Write-Host "[INFO] no local changes to commit." -ForegroundColor Yellow
 } else {
     if (-not $Message) {
-        try { $Message = Read-Host "Commit message (feat|fix|docs|refactor|exp|chore: what you did)" } catch {}
+        Write-Host ""
+        Write-Host "  What did you change? Examples:" -ForegroundColor Cyan
+        Write-Host "    feat: add call view"
+        Write-Host "    fix: voice sometimes silent"
+        Write-Host "    docs: update handoff notes"
+        try { $Message = Read-Host "  Commit message" } catch {}
     }
-    if (-not $Message) { $Message = "chore: sync progress" }
+# The message is mandatory: this used to fall back to "chore: sync progress",
+# which produced placeholder commits twice and violated AGENTS.md 7.5.
+    if (-not $Message -or $Message.Trim().Length -lt 6) {
+        Write-Host ""
+        Write-Host "[FAIL] commit message is required - nothing was committed." -ForegroundColor Red
+        Write-Host "       Write WHAT you changed, e.g.  feat: add call view" -ForegroundColor Yellow
+        Write-Host "       Then run push.cmd again and type it." -ForegroundColor Yellow
+        Write-Host "       (your file changes are still here, nothing is lost)" -ForegroundColor DarkGray
+        exit 1
+    }
+    $Message = $Message.Trim()
 
     git commit -m $Message
     if ($LASTEXITCODE -ne 0) {
