@@ -35,6 +35,9 @@ function arg(name, fallback) {
 const repoRoot = path.resolve(__dirname, '..', '..');
 const rawDir = path.resolve(repoRoot, arg('raw', path.join('data', 'raw_images')));
 const outDir = path.resolve(repoRoot, arg('out', path.join('assets', 'images')));
+// 生图工具会把「豆包 AI 生成」压在图右下角。演示时大屏一放大就看得见，
+// 所以入图前先切掉底部一条：--trim-bottom 0.09 = 砍掉下边 9% 的高度。
+const trimBottom = Number(arg('trim-bottom', '0'));
 
 function bytes(n) {
   return n >= 1024 ? `${(n / 1024).toFixed(0)}KB` : `${n}B`;
@@ -89,17 +92,23 @@ async function convert(file, stem) {
   const srcAspect = meta.width / meta.height;
   const targetAspect = W / H;
   const cropNote =
-    Math.abs(srcAspect - targetAspect) / targetAspect > 0.05
+    (trimBottom > 0 ? `底部裁 ${Math.round(trimBottom * 100)}% 去水印；` : '') +
+    (Math.abs(srcAspect - targetAspect) / targetAspect > 0.05
       ? `裁切 ${meta.width}x${meta.height} → ${W}x${H}`
-      : '尺寸吻合，无裁切';
+      : '尺寸吻合，无裁切');
 
   // 先按质量 82 压；超 300KB 就逐档往下压，最低 50
   let quality = 82;
   let buf;
   let lastMeta;
   for (;;) {
-    buf = await sharp(input)
-      .rotate() // 按 EXIF 摆正，手机/网页下载的图常见
+    let p = sharp(input).rotate(); // 按 EXIF 摆正，手机/网页下载的图常见
+    if (trimBottom > 0) {
+      const m = await sharp(input).metadata();
+      const keepH = Math.max(1, Math.round(m.height * (1 - trimBottom)));
+      p = p.extract({ left: 0, top: 0, width: m.width, height: keepH });
+    }
+    buf = await p
       .resize(W, H, { fit: 'cover', position: 'centre' })
       .webp({ quality, effort: 6 })
       .toBuffer();
