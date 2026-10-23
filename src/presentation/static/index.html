@@ -800,6 +800,8 @@
   var callStartedAt = Date.now();
   var timerHandle = null;
   var typeHandle = null;
+  var speaking = false;
+  var talkKnown = {};        // 表情 → 是否存在 expr_<表情>_talk.webp（探到一次就记住）
 
   // ---------------- 会话 ----------------
   function newId() {
@@ -882,6 +884,43 @@
     layer.cap.textContent = "表情占位 · " + info.cn;
   }
 
+  // 把某张图放进「当前没在显示」的那一层，成功后翻转父容器的 data-layer。
+  // talk=true 时优先试 expr_<表情>_talk.webp（伪口型），没有就退回静态图。
+  function putImage(layer, label, talk) {
+    var frame = layer.a.parentNode;
+    var base = "/avatar/expr_" + label + ".webp";
+    var url = (talk && talkKnown[label] !== false) ? ("/avatar/expr_" + label + "_talk.webp") : base;
+    var target = (layer.show === "a") ? "b" : "a";
+    var el = (target === "a") ? layer.a : layer.b;
+    var token = ++layer.token;
+    var trying = url;
+
+    function attempt() {
+      var probe = new Image();
+      probe.onload = function () {
+        if (token !== layer.token) { return; }      // 已有更新的请求，丢弃这次
+        if (trying !== base) { talkKnown[label] = true; }
+        el.src = trying;
+        frame.setAttribute("data-layer", target);
+        layer.show = target;
+        layer.ok = true;
+        layer.fallback.style.visibility = "hidden";
+      };
+      probe.onerror = function () {
+        if (token !== layer.token) { return; }
+        if (trying !== base) {                      // 张嘴图没有 → 退回静态图
+          talkKnown[label] = false;
+          trying = base;
+          attempt();
+          return;
+        }
+        if (!layer.ok) { layer.fallback.style.visibility = "visible"; }
+      };
+      probe.src = trying;
+    }
+    attempt();
+  }
+
   // 换表情：先预加载，成功后再把图放进隐藏层、翻转父容器的 data-layer。
   // 不逐个 img 记状态，也不靠 complete/naturalWidth 猜加载时机 —— 这是之前
   // 「说伤心但表情一直是平静的笑」那个 bug 的根源。
@@ -894,38 +933,27 @@
       var layer = layers[key];
       if (layer.expr === label) { return; }
       fillFallback(layer, label);
+      layer.expr = label;
+      putImage(layer, label, speaking);
+    });
+  }
 
-      var frame = layer.a.parentNode;
-      var url = "/avatar/expr_" + label + ".webp";
-      var target = (layer.show === "a") ? "b" : "a";
-      var el = (target === "a") ? layer.a : layer.b;
-      var token = ++layer.token;
-
-      var probe = new Image();
-      probe.onload = function () {
-        if (token !== layer.token) { return; }   // 已经有更新的请求，丢弃这次
-        el.src = url;
-        frame.setAttribute("data-layer", target);
-        layer.show = target;
-        layer.expr = label;
-        layer.ok = true;
-        layer.fallback.style.visibility = "hidden";
-      };
-      probe.onerror = function () {
-        if (token !== layer.token) { return; }
-        // 已经有图就继续显示上一张，别突然弹回占位块
-        if (!layer.ok) { layer.fallback.style.visibility = "visible"; }
-      };
-      probe.src = url;
+  // 开始/停止说话时，在「张嘴图」和「静态图」之间切一次
+  function refreshImages() {
+    ["call", "chat"].forEach(function (key) {
+      var layer = layers[key];
+      if (layer.expr) { putImage(layer, layer.expr, speaking); }
     });
   }
 
   function setStageState(state) {
-    var speak = (state === "speaking");
+    var wasSpeaking = speaking;
+    speaking = (state === "speaking");
     [stageEl, stageEl2].forEach(function (el) {
-      if (el) { el.setAttribute("data-state", speak ? "speaking" : "idle"); }
+      if (el) { el.setAttribute("data-state", speaking ? "speaking" : "idle"); }
     });
     badgeState.textContent = STATE_CN[state] || state;
+    if (wasSpeaking !== speaking) { refreshImages(); }
   }
 
   function setMeters(valence, arousal) {
@@ -1384,6 +1412,7 @@
     //   ?cycle=1    每 900ms 自动换一张，用来确认换图真的生效
     var forced = (location.search.match(/[?&]expr=([a-z]+)/) || [])[1];
     if (forced && EMOTION[forced]) { setExpression(forced); }
+    if (/[?&]state=speaking\b/.test(location.search)) { setStageState("speaking"); }
     if (/[?&]cycle=1\b/.test(location.search)) {
       var seq = ["sad", "happy", "angry", "empathic", "anxious", "surprised"];
       var idx = 0;
