@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import re
 import time
 from typing import Any, Dict, List, Optional, Tuple
@@ -158,14 +159,7 @@ KEYWORDS = {
 }
 
 
-MOCK_REPLIES = {
-    "sad": "嗯……听起来真的挺不好受的。是今天发生的哪一段最让你堵得慌？",
-    "anxious": "这么多事压在一起，确实容易睡不着。要不我们先挑一件最小的说说？",
-    "angry": "这事儿换我也得生气。当时他是怎么说的？",
-    "happy": "哎这个听着真好，值得高兴一下。后来呢？",
-    "surprised": "真的假的？我也有点意外。你当时怎么反应的？",
-    "neutral": "嗯，我在听。然后呢？",
-}
+# 固定模板回复定义见下方 _mock_reply / MOCK_REPLIES（每个情绪多条变体 + 关键词嵌位）
 
 
 # 平局时的优先级：越容易翻车的情绪排越前
@@ -196,6 +190,89 @@ def _mock_perceive(text: str) -> Tuple[str, float]:
     # 命中越多越自信，但封顶 0.85（规则法不该显得过于确定）
     confidence = min(0.85, 0.55 + 0.1 * hit_count)
     return label, round(confidence, 2)
+
+
+# ---------------- 固定模板回复（最后一层兜底）----------------
+# 这一层只在「模型不可用 + 预置缓存没命中」时用到。
+# 早期每个情绪只有一句固定台词，反复念会让人立刻觉得"这是个死板的东西"。
+# 现在改成：每个情绪多条变体随机选 + 把用户原话里的关键词嵌进去（{kw}），
+# 同样的情绪也不至于每次一模一样，而且能接上对方刚说的话。
+MOCK_REPLIES: Dict[str, List[str]] = {
+    "sad": [
+        "哎…{kw}这事，听着就挺难受的。是今天发生的吗？",
+        "「{kw}」…嗯，我听着呢。你当时什么感觉？",
+        "这个真挺磨人的。你现在最想说的是哪一句？",
+        "嗯…心里堵着的时候，说出来会松一点。要说说吗？",
+    ],
+    "anxious": [
+        "这么悬着，脑子肯定停不下来。{kw}那块最难的是哪一步？",
+        "嗯…越想越睡不着的那种感觉，我懂。先挑最小的一件说说？",
+        "你担心的事，最坏会到什么程度？", 
+        "那现在有没有哪一件是你能先放下的？",
+    ],
+    "angry": [
+        "这事儿换我也得气。{kw}当时是怎么说的？",
+        "哎…被人这么对待确实憋屈。后来呢？",
+        "你生气的点，是被冤枉，还是没人站你这边？",
+    ],
+    "happy": [
+        "哎这个听着真好。{kw}…后来呢？",
+        "哈哈，那确实值得高兴。多讲点？",
+        "听起来你今天挺顺的呀。最开心的是哪一刻？",
+    ],
+    "surprised": [
+        "真的假的？那你当时什么反应？",
+        "这么突然…{kw}之前完全没迹象吗？",
+        "我也有点意外。你现在是高兴多一点，还是懵多一点？",
+    ],
+    "neutral": [
+        "嗯，{kw}…然后呢？",
+        "我在听。你接着说。",
+        "哦这样啊。那你现在打算怎么办？",
+    ],
+}
+
+_KEY_FILLERS = [
+    "我今天", "我今天其实", "今天", "感觉", "觉得", "真的", "其实", "有点", "挺",
+    "特别", "非常", "还是", "就是", "然后", "所以", "因为", "而且", "但是",
+    "我", "你", "他", "她", "的", "了", "呢", "啊", "吧", "呀", "吗", "着", "过",
+    "是", "在", "也", "都", "就", "还", "又", "很", "太", "不", "没", "有",
+]
+
+
+def _key_phrase(text: str, limit: int = 8) -> str:
+    """从用户的话里抠出一小段可以嵌进模板的关键词，让模板回复显得"有在听"。
+
+    纯规则：去标点 → 去掉常见虚词 → 取最长的一段 → 截断。
+    抠不出来就返回空字符串（模板里的 {kw} 会被整体去掉）。
+    """
+    if not text:
+        return ""
+    s = _norm_text(text)
+    for ch in ",.!?;:\"'()[]{}<>、~·—-":
+        s = s.replace(ch, " ")
+    for w in _KEY_FILLERS:
+        s = s.replace(w, " ")
+    chunks = [c.strip() for c in s.split() if len(c.strip()) >= 2]
+    if not chunks:
+        return ""
+    best = max(chunks, key=len)
+    return best[:limit]
+
+
+def _mock_reply(emotion: str, text: str) -> str:
+    """挑一条变体，并把关键词嵌进去；长度控制在一句话能念完。"""
+    variants = MOCK_REPLIES.get(emotion) or MOCK_REPLIES["neutral"]
+    tpl = random.choice(variants)
+    kw = _key_phrase(text)
+    if "{kw}" in tpl:
+        if not kw:
+            # 抠不出来就换一条不需要关键词的
+            plain = [v for v in variants if "{kw}" not in v]
+            tpl = random.choice(plain) if plain else tpl.replace("{kw}", "你说的这个")
+        else:
+            tpl = tpl.replace("{kw}", kw)
+    return tpl[:60]
 
 
 # ---------------- LLM 调用 ----------------
@@ -378,7 +455,7 @@ def respond(
         })
         return perception, response
 
-    emotion, intensity, reply = "neutral", 0.5, MOCK_REPLIES["neutral"]
+    emotion, intensity, reply = "neutral", 0.5, _mock_reply("neutral", "")
     used_llm = False
     llm_error = ""
     cached_audio = ""
@@ -433,7 +510,7 @@ def respond(
         # 兜底一：预置演示缓存（有真实回复 + 已合成音频，演示时听不出差别）
         cached = _demo_lookup(text)
         if cached:
-            reply = str(cached.get("reply") or "").strip() or MOCK_REPLIES["neutral"]
+            reply = str(cached.get("reply") or "").strip() or _mock_reply("neutral", text)
             emotion = str(cached.get("emotion") or "neutral").strip().lower()
             if emotion not in EMOTIONS:
                 emotion = "neutral"
@@ -447,7 +524,7 @@ def respond(
         else:
             # 兜底二：关键词 + 固定模板（最"人机"，但至少不中断）
             emotion, intensity = _mock_perceive(text)
-            reply = MOCK_REPLIES.get(emotion, MOCK_REPLIES["neutral"])
+            reply = _mock_reply(emotion, text)
             fallback_source = "mock"
             if not offline:
                 print(f"[LLM] 已降级为固定模板：{llm_error[:80]}")
