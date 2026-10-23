@@ -6,15 +6,21 @@ echo.
 echo   正在把队友最新的改动下载下来，请稍等...
 echo.
 powershell -ExecutionPolicy Bypass -File "%~dp0scripts\sync.ps1" -PullOnly > "%LOG%" 2>&1
-set "RC=%ERRORLEVEL%"
 type "%LOG%"
 echo.
 echo ----------------------------------------------
 findstr /C:"[CONFLICT]" "%LOG%" >nul
 if not errorlevel 1 (
   echo   【有冲突】你和队友改了同一批文件，自动合并失败。
-  echo   不要自己乱改！把窗口截图发群里，由改得多的那个人处理。
-  echo   想回到拉取之前的状态，可以在项目目录执行：git rebase --abort
+  echo.
+  echo   按这三步做（文档类冲突很简单）：
+  echo     1. 打开上面列出的文件，删掉 ^<^<^<^<^<^<^< / ======= / ^>^>^>^>^>^>^> 这些标记行
+  echo        两边内容都保留，别删别人的
+  echo     2. git add -A
+  echo     3. git commit -m "merge: 解决冲突"
+  echo.
+  echo   如果想放弃、回到拉取之前的状态： git merge --abort
+  echo   （如果提示还有没结束的 rebase，先执行 git rebase --abort）
   goto :end
 )
 findstr /C:"[OK] up to date" "%LOG%" >nul
