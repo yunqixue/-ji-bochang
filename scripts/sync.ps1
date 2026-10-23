@@ -117,21 +117,42 @@ if (-not $staged) {
 }
 
 # ---------- push ----------
+# Capture push output first, then classify. The Chinese explanation lives in push.cmd
+# (GBK encoded); this script stays ASCII-only so PowerShell 5.1 can always parse it.
+# Past bug: push.cmd used findstr to look for "schannel"/"rejected" in the log, but our own
+# hint text contained those words, so a simple "someone pushed first" got reported as
+# "your TLS is broken". Classification now comes from git's real output only.
 if ($Force) {
     Write-Host "[3/3] FORCE pushing (overwriting remote history) ..." -ForegroundColor Magenta
-    git push --force $Remote $Branch
+    $pushOut = (git push --force $Remote $Branch 2>&1 | Out-String)
 } else {
     Write-Host "[3/3] pushing ..." -ForegroundColor Cyan
-    git push -u $Remote $Branch
+    $pushOut = (git push -u $Remote $Branch 2>&1 | Out-String)
 }
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "[FAIL] push failed. Common causes:" -ForegroundColor Red
-    Write-Host "  1. Credentials: username = your Gitee name, password = a PERSONAL ACCESS TOKEN (not your login password)."
-    Write-Host "     Gitee: avatar -> Settings -> Security -> Personal access tokens -> generate (scope: projects)."
-    Write-Host "  2. Someone pushed first: rerun this script (it rebases), or run -PullOnly then push again."
-    Write-Host "  3. TLS / schannel error: try  git config http.sslBackend openssl"
-    Write-Host "  4. Repo does not exist or name mismatch: open the URL in a browser to confirm."
-    Write-Host "  5. Local history was rewritten and the remote rejects it: use the FORCE button once."
+$pushCode = $LASTEXITCODE
+Write-Host $pushOut.TrimEnd()
+
+if ($pushCode -ne 0) {
+    $cls = "UNKNOWN"
+    $hint = "unclassified - send the whole window to the team lead"
+    if ($pushOut -match '\[rejected\]|non-fast-forward|fetch first|Updates were rejected') {
+        $cls = "REJECTED"
+        $hint = "remote has newer commits: run pull.cmd first, then push.cmd again"
+    } elseif ($pushOut -match 'Authentication failed|403 Forbidden|Permission denied|invalid username or password') {
+        $cls = "AUTH"
+        $hint = "wrong password: Gitee needs a PERSONAL ACCESS TOKEN, not your login password"
+    } elseif ($pushOut -match 'schannel:|SEC_E_|SSL certificate problem|OpenSSL SSL_|certificate verify failed') {
+        $cls = "TLS"
+        $hint = "TLS problem on this machine: try  git config http.sslBackend openssl"
+    } elseif ($pushOut -match 'not found|does not appear to be a git repository') {
+        $cls = "NO_REPO"
+        $hint = "repo URL wrong, or you are not a member of this repository"
+    }
+
+    Write-Host ""
+    Write-Host "[RESULT] $cls" -ForegroundColor Red
+    Write-Host "       $hint" -ForegroundColor Yellow
+    Write-Host "[FAIL] push failed ($cls)" -ForegroundColor Red
     exit 1
 }
 

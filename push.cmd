@@ -12,19 +12,41 @@ echo.
 echo ----------------------------------------------
 findstr /C:"[OK] pushed" "%LOG%" >nul
 if not errorlevel 1 echo   【成功】代码已经上传到云端 & goto :end
-findstr /C:"Authentication failed" "%LOG%" >nul
-if not errorlevel 1 echo   【失败】用户名或密码填错了。密码要填【私人令牌】，不是登录密码 & goto :end
-findstr /C:"Author identity" "%LOG%" >nul
-if not errorlevel 1 echo   【失败】你还没设置名字和邮箱，见 使用方法.txt 第二篇第 3 步 & goto :end
-findstr /C:"schannel" "%LOG%" >nul
-if not errorlevel 1 echo   【失败】这台电脑的网络加密有问题，把窗口截图发给队长 & goto :end
-findstr /C:"not found" "%LOG%" >nul
-if not errorlevel 1 echo   【失败】仓库地址不对，或者你还没被加进这个仓库 & goto :end
-findstr /C:"rejected" "%LOG%" >nul
-if not errorlevel 1 echo   【失败】别人先上传了。先双击 pull.cmd，再双击本文件 & goto :end
-findstr /C:"push failed" "%LOG%" >nul
-if not errorlevel 1 echo   【失败】别人先上传了。先双击 pull.cmd，再双击本文件 & goto :end
-echo   【未知问题】把整个窗口截图发给队长，不要自己改文件
+
+rem 只认 sync.ps1 输出的 [RESULT] 分类，不模糊搜关键字
+findstr /C:"[RESULT] REJECTED" "%LOG%" >nul
+if not errorlevel 1 (
+  echo   【失败】队友比你早推了，云端有他更新的提交。
+  echo.
+  echo   解决：先双击 pull.cmd，再双击本文件。
+  echo   pull 时如果提示冲突，按 docs\疑难排查.md 第 12 节处理。
+  goto :end
+)
+findstr /C:"[RESULT] AUTH" "%LOG%" >nul
+if not errorlevel 1 (
+  echo   【失败】账号密码不对。密码要填【私人令牌】，不是登录密码。
+  echo   令牌在：Gitee 头像 -^> 设置 -^> 安全设置 -^> 私人令牌 -^> 生成新令牌（勾 projects）
+  goto :end
+)
+findstr /C:"[RESULT] TLS" "%LOG%" >nul
+if not errorlevel 1 (
+  echo   【失败】这台电脑的网络加密有问题（TLS）。
+  echo   在项目目录执行一次：git config http.sslBackend openssl
+  echo   然后重试；还不行就把窗口截图发队长。
+  goto :end
+)
+findstr /C:"[RESULT] NO_REPO" "%LOG%" >nul
+if not errorlevel 1 (
+  echo   【失败】仓库地址不对，或者你还没被加进这个仓库。
+  echo   用浏览器打开仓库地址确认能不能访问。
+  goto :end
+)
+findstr /C:"[CONFLICT]" "%LOG%" >nul
+if not errorlevel 1 (
+  echo   【失败】有冲突没解决，先把冲突处理完（见 docs\疑难排查.md 第 12 节）。
+  goto :end
+)
+echo   【失败】原因没识别出来（UNKNOWN）。把整个窗口截图发给队长，不要自己猜。
 :end
 echo ----------------------------------------------
 echo   不需要你输入任何命令，按任意键关闭本窗口
