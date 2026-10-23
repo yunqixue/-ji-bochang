@@ -102,6 +102,31 @@ $staged = git diff --cached --name-only
 if (-not $staged) {
     Write-Host "[INFO] no local changes to commit." -ForegroundColor Yellow
 } else {
+    # ---------- secret scan: refuse to commit anything that looks like a credential ----------
+    # We already leaked a personal access token once (it ended up in history). A mechanical
+    # guard is cheaper than another cleanup. Only checks what is actually staged.
+    $secretHits = @()
+    foreach ($f in @($staged)) {
+        if ($f -match '(?i)(^|/)(\.env[^/]*|.*api[_-]?key.*|.*secret.*|.*credential.*|.*token\.(txt|json)$)$') {
+            $secretHits += "suspicious filename: $f"
+        }
+    }
+    $stagedDiff = (git diff --cached -U0 2>&1 | Out-String)
+    if ($stagedDiff -match 'sk-[A-Za-z0-9]{20,}') {
+        $secretHits += "content looks like an API key (sk-...)"
+    }
+    if ($stagedDiff -match '\b[0-9a-f]{32}\.[A-Za-z0-9]{16,}\b') {
+        $secretHits += "content looks like a Gitee access token"
+    }
+    if ($secretHits.Count -gt 0) {
+        Write-Host ""
+        Write-Host "[SECRET] refusing to commit - possible credential detected:" -ForegroundColor Red
+        $secretHits | ForEach-Object { Write-Host "         $_" -ForegroundColor Red }
+        Write-Host "[RESULT] SECRET" -ForegroundColor Red
+        Write-Host "       Nothing was committed. Move the secret out of the repo, then retry." -ForegroundColor Yellow
+        exit 3
+    }
+
     if (-not $Message) {
         Write-Host ""
         Write-Host "  What did you change? Examples:" -ForegroundColor Cyan
