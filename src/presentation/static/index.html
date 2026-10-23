@@ -740,7 +740,7 @@
     busy = on;
     sendBtn.disabled = on;
     inputEl.disabled = on;
-    micBtn.disabled = on;
+    micBtn.disabled = on || micBtn.dataset.locked === "1";
     if (on) { setStageState("thinking"); }
   }
 
@@ -947,7 +947,13 @@
         if (notes.length) { hint(notes.join("；"), true); }
         else { hint("一切正常。说一句试试。"); }
 
-        if (!h.asr) { micBtn.title = "语音识别未安装，点了也没用，先用打字"; }
+        if (!h.asr) {
+          // ASR 没装时，点录音只会拿到错误 —— 直接锁死，别让人白点一次
+          micBtn.dataset.locked = "1";
+          micBtn.disabled = true;
+          micBtn.title = "语音识别没装（缺 faster-whisper），先用打字";
+          micLabel.textContent = "语音未装";
+        }
       })
       .catch(function () {
         setDot($("dot-asr"), false);
