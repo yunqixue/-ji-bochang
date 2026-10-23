@@ -200,7 +200,9 @@
     -webkit-user-drag: none;
   }
 
-  .avatar-img.active { opacity: 1; }
+  /* 显隐只由父容器的 data-layer 决定：改一个属性就完成交叉淡入，不用逐个元素记状态 */
+  .avatar-frame[data-layer="a"] .layer-a,
+  .avatar-frame[data-layer="b"] .layer-b { opacity: 1; }
 
   .avatar-fallback {
     position: relative;
@@ -607,8 +609,8 @@
 
   <div class="stage" id="stage" data-state="idle">
     <div class="avatar-frame">
-      <img class="avatar-img" id="avatar-a" alt="">
-      <img class="avatar-img" id="avatar-b" alt="">
+      <img class="avatar-img layer-a" id="avatar-a" alt="">
+      <img class="avatar-img layer-b" id="avatar-b" alt="">
       <div class="avatar-fallback" id="avatar-fallback">
         <div class="face" id="fallback-face">🙂</div>
         <div class="cap" id="fallback-cap">表情占位 · 平静</div>
@@ -660,8 +662,8 @@
   <section class="stage-card">
     <div class="stage" id="stage2" data-state="idle">
       <div class="avatar-frame">
-        <img class="avatar-img" id="avatar-c" alt="">
-        <img class="avatar-img" id="avatar-d" alt="">
+        <img class="avatar-img layer-a" id="avatar-c" alt="">
+        <img class="avatar-img layer-b" id="avatar-d" alt="">
         <div class="avatar-fallback" id="avatar-fallback2">
           <div class="face" id="fallback-face2">🙂</div>
           <div class="cap" id="fallback-cap2">表情占位 · 平静</div>
@@ -780,8 +782,8 @@
 
   // 两套形象层（通话视图 / 文字视图各一套，互不干扰）
   var layers = {
-    call: { a: $("avatar-a"), b: $("avatar-b"), fallback: $("avatar-fallback"), face: $("fallback-face"), cap: $("fallback-cap"), front: null, expr: "" },
-    chat: { a: $("avatar-c"), b: $("avatar-d"), fallback: $("avatar-fallback2"), face: $("fallback-face2"), cap: $("fallback-cap2"), front: null, expr: "" }
+    call: { a: $("avatar-a"), b: $("avatar-b"), fallback: $("avatar-fallback"), face: $("fallback-face"), cap: $("fallback-cap"), show: "b", ok: false, expr: "", token: 0 },
+    chat: { a: $("avatar-c"), b: $("avatar-d"), fallback: $("avatar-fallback2"), face: $("fallback-face2"), cap: $("fallback-cap2"), show: "b", ok: false, expr: "", token: 0 }
   };
 
   // ---------------- 运行状态 ----------------
@@ -880,43 +882,41 @@
     layer.cap.textContent = "表情占位 · " + info.cn;
   }
 
-  // 两个视图各换一次；同一次回复只算一次 loading
+  // 换表情：先预加载，成功后再把图放进隐藏层、翻转父容器的 data-layer。
+  // 不逐个 img 记状态，也不靠 complete/naturalWidth 猜加载时机 —— 这是之前
+  // 「说伤心但表情一直是平静的笑」那个 bug 的根源。
   function setExpression(expr) {
     var label = EMOTION[expr] ? expr : "neutral";
     var info = EMOTION[label];
-    badgeEmotion.textContent = "她的表情 · " + info.cn;
+    if (badgeEmotion) { badgeEmotion.textContent = "她的表情 · " + info.cn; }
 
     ["call", "chat"].forEach(function (key) {
       var layer = layers[key];
       if (layer.expr === label) { return; }
-      layer.expr = label;
-      layer.fallback.style.visibility = "visible";
       fillFallback(layer, label);
 
-      var next = (layer.front === layer.a) ? layer.b : layer.a;
+      var frame = layer.a.parentNode;
       var url = "/avatar/expr_" + label + ".webp";
-      var done = false;
+      var target = (layer.show === "a") ? "b" : "a";
+      var el = (target === "a") ? layer.a : layer.b;
+      var token = ++layer.token;
 
-      function activate() {
-        if (done) { return; }
-        done = true;
-        next.classList.add("active");
-        if (layer.front && layer.front !== next) { layer.front.classList.remove("active"); }
-        layer.front = next;
+      var probe = new Image();
+      probe.onload = function () {
+        if (token !== layer.token) { return; }   // 已经有更新的请求，丢弃这次
+        el.src = url;
+        frame.setAttribute("data-layer", target);
+        layer.show = target;
+        layer.expr = label;
+        layer.ok = true;
         layer.fallback.style.visibility = "hidden";
-      }
-      function giveUp() {
-        if (done) { return; }
-        done = true;
-        next.classList.remove("active");
-        next.removeAttribute("src");
-        layer.fallback.style.visibility = "visible";
-      }
-
-      next.onload = activate;
-      next.onerror = giveUp;
-      next.src = url;
-      if (next.complete && next.naturalWidth > 0) { activate(); }
+      };
+      probe.onerror = function () {
+        if (token !== layer.token) { return; }
+        // 已经有图就继续显示上一张，别突然弹回占位块
+        if (!layer.ok) { layer.fallback.style.visibility = "visible"; }
+      };
+      probe.src = url;
     });
   }
 
@@ -1378,6 +1378,22 @@
     setView(initialView());
     setStageState("idle");
     setExpression("neutral");
+
+    // 调试 / 演示用参数：
+    //   ?expr=sad   直接定在某一张表情（等价于走一次换图，可当回归用）
+    //   ?cycle=1    每 900ms 自动换一张，用来确认换图真的生效
+    var forced = (location.search.match(/[?&]expr=([a-z]+)/) || [])[1];
+    if (forced && EMOTION[forced]) { setExpression(forced); }
+    if (/[?&]cycle=1\b/.test(location.search)) {
+      var seq = ["sad", "happy", "angry", "empathic", "anxious", "surprised"];
+      var idx = 0;
+      var handle = setInterval(function () {
+        if (idx >= seq.length) { clearInterval(handle); return; }
+        setExpression(seq[idx]);
+        idx += 1;
+      }, 900);
+    }
+
     setMeters(0, 0.4);
     addRow("them", "我在呢。今天过得怎么样？", "");
     setSubtitle("我在呢。今天过得怎么样？", false);
