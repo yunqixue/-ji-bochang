@@ -27,6 +27,8 @@ from src.shared.contracts import (
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 PROMPT_FILE = os.path.join(REPO_ROOT, "assets", "prompts", "system_prompt.txt")
+# 本地「话术库」：按情绪给模型的倾听要点（skills 的离线替代，存在就注入，不存在不影响）
+EMOTION_GUIDE_FILE = os.path.join(REPO_ROOT, "assets", "prompts", "emotion_guide.txt")
 
 # 人设提示词的兜底版（A 定稿后写进 assets/prompts/system_prompt.txt 就自动生效）
 FALLBACK_PROMPT = """你叫小雨，25 岁，画插画的，养了只猫叫糯米。
@@ -42,8 +44,12 @@ FALLBACK_PROMPT = """你叫小雨，25 岁，画插画的，养了只猫叫糯�
 # 要求模型严格返回 JSON
 JSON_INSTRUCTION = """
 你必须只输出一个 JSON 对象，不要输出任何其它文字、不要加代码块标记。格式：
-{"emotion": "neutral|happy|sad|anxious|angry|surprised", "intensity": 0.0~1.0, "reply": "你的回复"}
-其中 emotion 是**用户**此刻的情绪，reply 是你的回复（符合你的人设，最多三句）。
+{"emotion": "neutral|happy|sad|anxious|angry|surprised", "intensity": 0.0~1.0, "valence": -1.0~1.0, "arousal": 0.0~1.0, "reply": "你的回复"}
+- emotion 是**用户**此刻的情绪；intensity 是情绪强度。
+- valence 是用户心情好坏：-1 最差 ~ 1 最好（难过/生气给负数，开心给正数）。
+- arousal 是用户激动程度：0 很平静 ~ 1 很激动（惊讶/生气偏高，平静偏低）。
+- 写 reply 之前，先在脑子里想清楚「他现在是什么处境、什么心情」，再落笔。
+- reply 符合你的人设，最多三句、40 字以内。
 """
 
 # ---------------- 多轮记忆（进程内，重启即清空，三天内够用）----------------
@@ -313,16 +319,36 @@ def _build_client():
     return OpenAI(api_key=key, base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"))
 
 
+def _emotion_guide() -> str:
+    """读本地话术库（assets/prompts/emotion_guide.txt），按情绪给模型倾听要点。"""
+    if os.path.exists(EMOTION_GUIDE_FILE):
+        try:
+            with open(EMOTION_GUIDE_FILE, "r", encoding="utf-8") as fh:
+                content = fh.read().strip()
+            if content:
+                return content
+        except Exception:
+            pass
+    return ""
+
+
 def _system_prompt() -> str:
+    parts = []
     if os.path.exists(PROMPT_FILE):
         try:
             with open(PROMPT_FILE, "r", encoding="utf-8") as fh:
                 content = fh.read().strip()
             if content:
-                return content + "\n" + JSON_INSTRUCTION
+                parts.append(content)
         except Exception:
             pass
-    return FALLBACK_PROMPT + "\n" + JSON_INSTRUCTION
+    if not parts:
+        parts.append(FALLBACK_PROMPT)
+    guide = _emotion_guide()
+    if guide:
+        parts.append(guide)
+    parts.append(JSON_INSTRUCTION)
+    return "\n\n".join(parts)
 
 
 def _parse_json(raw: str) -> Optional[Dict[str, Any]]:
@@ -460,6 +486,8 @@ def respond(
     llm_error = ""
     cached_audio = ""
     fallback_source = ""
+    model_valence: Optional[float] = None
+    model_arousal: Optional[float] = None
 
     # DEMO_FALLBACK=1 时故意不连模型：用来演练「现场断网」，也用来验证兜底链路。
     offline = os.getenv("DEMO_FALLBACK") == "1"
@@ -499,6 +527,15 @@ def respond(
             emotion = str(data.get("emotion", "neutral")).strip().lower()
             reply = str(data.get("reply", "")).strip()
             intensity = float(data.get("intensity", 0.6))
+            # 模型直接判断的效价/唤醒度（正确读取感受的核心）；没给或不是数字就留 None，后面退回映射表
+            try:
+                model_valence = float(data.get("valence"))
+            except Exception:
+                model_valence = None
+            try:
+                model_arousal = float(data.get("arousal"))
+            except Exception:
+                model_arousal = None
             if emotion not in EMOTIONS:
                 emotion = "neutral"
             used_llm = True
@@ -534,16 +571,20 @@ def respond(
         emotion = "neutral"
     intensity = max(0.0, min(1.0, float(intensity)))
 
-    # 用户情绪 → 效价/唤醒度（粗映射，够前端展示）
+    # 用户情绪 → 效价/唤醒度：优先用模型直接判断的，没有才用粗映射
     valence_map = {"happy": 0.7, "surprised": 0.2, "neutral": 0.0, "anxious": -0.4, "sad": -0.6, "angry": -0.5}
     arousal_map = {"happy": 0.7, "surprised": 0.8, "neutral": 0.4, "anxious": 0.7, "sad": 0.3, "angry": 0.8}
+    valence = model_valence if model_valence is not None else valence_map.get(emotion, 0.0)
+    valence = max(-1.0, min(1.0, valence))
+    arousal = model_arousal if model_arousal is not None else arousal_map.get(emotion, 0.5)
+    arousal = max(0.0, min(1.0, arousal))
 
     perception = PerceptionResult(
         text=text,
         emotion_label=emotion,
         emotion_score=round(intensity, 2),
-        valence=valence_map.get(emotion, 0.0),
-        arousal=arousal_map.get(emotion, 0.5),
+        valence=round(valence, 2),
+        arousal=round(arousal, 2),
         modality=modality,
         raw={"used_llm": used_llm},
     )
