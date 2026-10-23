@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="zh">
+<meta charset="utf-8">
+<title>表情切换诊断</title>
+<style>
+  body { font-family: system-ui, "Microsoft YaHei", sans-serif; background:#f7f2ea; margin:0; padding:24px; }
+  h2 { margin:0 0 8px; font-size:18px; }
+  p.hint { color:#7a6a5a; font-size:13px; margin:6px 0 18px; }
+
+  /* 与主页面完全一致的立绘舞台与图片规则 */
+  .stage {
+    position: relative;
+    width: 420px; height: 420px;
+    margin: 0 auto 18px;
+    display: grid; place-items: center;
+    background: radial-gradient(circle at 50% 30%, #fffefb 0%, #f6e8da 70%, #eedcc8 100%);
+    border-radius: 18px;
+    border: 1px solid #e6d3bf;
+  }
+  .avatar-frame {
+    position: relative;
+    z-index: 1;
+    width: min(74%, 460px);
+    aspect-ratio: 1 / 1;
+    display: grid; place-items: center;
+    animation: breathe 4.4s ease-in-out infinite;
+  }
+  @keyframes breathe { 0%,100%{transform:scale(1);} 50%{transform:scale(1.02);} }
+
+  .avatar-img {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: contain;
+    opacity: 0;
+    transition: opacity 200ms ease-in-out;
+  }
+  .avatar-img.active { opacity: 1; }
+
+  .avatar-fallback {
+    position: relative;
+    width: 100%; height: 100%;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    background: radial-gradient(circle at 50% 34%, #fffefb 0%, #fbeadb 66%, #f4dcc8 100%);
+    border: 1px solid rgba(224,190,160,.55);
+    font-size: 40px; color:#a98d75;
+  }
+
+  .row { text-align:center; margin-bottom:14px; }
+  button {
+    font: inherit; font-size:13px; padding:7px 13px; margin:3px;
+    border-radius: 8px; border:1px solid #d9c3ab; background:#fffdf9; cursor:pointer;
+  }
+  button:hover { background:#f3e6d6; }
+  #status {
+    font-family: Consolas, monospace; font-size:12.5px; line-height:1.7;
+    background:#fffdf9; border:1px solid #e6d3bf; border-radius:10px;
+    padding:12px 14px; max-width:760px; margin:0 auto; white-space:pre-wrap;
+  }
+  .ok { color:#2e7d32; } .bad { color:#c62828; }
+</style>
+
+<h2>表情切换诊断页</h2>
+<p class="hint">这一页的 CSS 与主页面完全一致。点下面的按钮切换表情，看两件事：① 大图会不会变 ② 状态栏里的数字。</p>
+
+<div class="stage">
+  <div class="avatar-frame" id="frame">
+    <img class="avatar-img" id="avA" alt="">
+    <img class="avatar-img" id="avB" alt="">
+    <div class="avatar-fallback" id="fallback" style="visibility:hidden">占位</div>
+  </div>
+</div>
+
+<div class="row" id="buttons"></div>
+<div class="row">
+  <button onclick="testAll()">① 依次切 7 张（看会不会变）</button>
+  <button onclick="location.reload()">刷新</button>
+</div>
+
+<div id="status">等待操作…</div>
+
+<script>
+  var LABELS = [
+    ['neutral','平静'], ['happy','开心'], ['sad','难过'],
+    ['anxious','紧张'], ['angry','生气'], ['surprised','惊讶'], ['empathic','关切']
+  ];
+  var avA = document.getElementById('avA');
+  var avB = document.getElementById('avB');
+  var fallback = document.getElementById('fallback');
+  var statusEl = document.getElementById('status');
+  var front = null, expr = '', log = [];
+
+  function report(tag) {
+    var lines = [
+      '[' + tag + ']',
+      '  当前标签 : ' + (expr || '(空)'),
+      '  avA      : src=' + (avA.getAttribute('src') || '无') +
+        '  cls=' + (avA.className || '(空)') +
+        '  已解码宽=' + avA.naturalWidth + '  高=' + avA.naturalHeight,
+      '  avB      : src=' + (avB.getAttribute('src') || '无') +
+        '  cls=' + (avB.className || '(空)') +
+        '  已解码宽=' + avB.naturalWidth + '  高=' + avB.naturalHeight,
+      '  fallback : visibility=' + (fallback.style.visibility || '(未设)'),
+      '  front    : ' + (front ? front.id : 'null'),
+      '',
+      log.slice(-6).join('\n')
+    ];
+    statusEl.textContent = lines.join('\n');
+  }
+
+  function setExpression(label) {
+    if (expr === label) { log.push('  跳过：已经是 ' + label); report('skip'); return; }
+    expr = label;
+    fallback.style.visibility = 'visible';
+
+    var next = (front === avA) ? avB : avA;
+    var url = '/avatar/expr_' + label + '.webp';
+    var done = false;
+    log.push('切到 ' + label + ' → 目标元素 ' + next.id + '  url=' + url);
+
+    function activate() {
+      if (done) { return; }
+      done = true;
+      next.classList.add('active');
+      if (front && front !== next) { front.classList.remove('active'); }
+      front = next;
+      fallback.style.visibility = 'hidden';
+      log.push('  activate() 成功：' + next.id + ' 加上 .active，占位块隐藏，解码宽=' + next.naturalWidth);
+      report('activate');
+    }
+    function giveUp() {
+      if (done) { return; }
+      done = true;
+      next.classList.remove('active');
+      next.removeAttribute('src');
+      fallback.style.visibility = 'visible';
+      log.push('  giveUp()：图片加载失败，显示占位块');
+      report('error');
+    }
+
+    next.onload = activate;
+    next.onerror = giveUp;
+    next.src = url;
+    if (next.complete && next.naturalWidth > 0) { activate(); }
+    setTimeout(function () { if (!done) { log.push('  ⚠️ 2 秒内既没 onload 也没 onerror'); report('timeout'); } }, 2000);
+  }
+
+  // 按钮
+  var bar = document.getElementById('buttons');
+  LABELS.forEach(function (pair) {
+    var b = document.createElement('button');
+    b.textContent = pair[1] + ' ' + pair[0];
+    b.onclick = function () { setExpression(pair[0]); };
+    bar.appendChild(b);
+  });
+
+  function testAll() {
+    var i = 0;
+    var t = setInterval(function () {
+      if (i >= LABELS.length) { clearInterval(t); return; }
+      setExpression(LABELS[i][0]);
+      i++;
+    }, 1200);
+  }
+
+  setExpression('neutral');
+</script>
+</html>
