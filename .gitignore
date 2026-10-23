@@ -78,3 +78,8 @@ data/models/
 *.onnx.json
 # ===== 运行日志（不进仓库）=====
 logs/
+*api_key*
+*apikey*
+*api-key*
+*secret*
+*credential*
