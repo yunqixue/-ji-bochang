@@ -14,9 +14,16 @@ from __future__ import annotations
 
 import io
 import os
-import tempfile
 import time
 from typing import Optional
+
+# 必须在 import faster_whisper / huggingface_hub 之前设好缓存与镜像：
+#   1) HF_HOME 默认落在 C:\Users\<你>\.cache\huggingface，某些受限环境写不进去（实测 WinError 5），
+#      而且模型 150~500MB 放在用户目录也不方便共享排查。统一放到项目 data/models/hf（已 gitignore）。
+#   2) HF_ENDPOINT 走国内镜像，否则 huggingface.co 经常连不上，模型下不下来。
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.environ.setdefault("HF_HOME", os.path.join(_REPO_ROOT, "data", "models", "hf"))
+os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
 
 _MODEL = None
 _MODEL_SIZE = os.getenv("ASR_MODEL_SIZE", "small")   # tiny / base / small / medium
@@ -38,12 +45,31 @@ def available() -> bool:
         return False
 
 
+def local_model_dir() -> str:
+    """本项目自己的模型目录：data/models/faster-whisper-<尺寸>/"""
+    return os.path.join(_REPO_ROOT, "data", "models", f"faster-whisper-{_MODEL_SIZE}")
+
+
+def model_ready() -> bool:
+    """本地模型文件齐了没（model.bin + vocabulary.txt + tokenizer.json + config.json）。"""
+    d = local_model_dir()
+    need = ["model.bin", "vocabulary.txt", "tokenizer.json", "config.json"]
+    return os.path.isdir(d) and all(
+        os.path.exists(os.path.join(d, f)) and os.path.getsize(os.path.join(d, f)) > 100 for f in need
+    )
+
+
 def _get_model():
     global _MODEL
     if _MODEL is None:
         from faster_whisper import WhisperModel
-        # 首次运行会自动下载模型（small 约 500MB），演示前务必先跑一次！
-        _MODEL = WhisperModel(_MODEL_SIZE, device="cpu", compute_type="int8")
+        # 优先用项目内的本地模型目录：不依赖 HuggingFace 缓存、不受用户目录权限限制，
+        # 队友只要把 data/models/faster-whisper-<尺寸>/ 拷过来就能用。
+        if model_ready():
+            _MODEL = WhisperModel(local_model_dir(), device="cpu", compute_type="int8")
+        else:
+            # 回退：让 faster-whisper 自己按名字去下载（首次约 150~500MB，演示前务必先跑一次）
+            _MODEL = WhisperModel(_MODEL_SIZE, device="cpu", compute_type="int8")
     return _MODEL
 
 

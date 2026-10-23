@@ -16,6 +16,8 @@ python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple fastapi "uvico
 
 # 2. 语音识别（可选，装不上不影响文字对话）
 python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple faster-whisper
+#    装完还要下模型（约150MB）：
+python experiments/download_asr_model.py
 
 # 3. 把 DeepSeek Key 粘进项目根目录的 api_key.txt（已 gitignore，不会进仓库）
 #    没有 Key 也能跑，只是回复会走内置 mock 模板
@@ -97,13 +99,17 @@ python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple faster-whisper
 
 ---
 
-## 四个工具脚本
+## 五个工具脚本
 
 ```powershell
 # 环境自检：缺依赖 / 缺 Key / 缺表情图 / 端口占用，一眼看清
 python experiments/check_env.py
 
-# 端到端冒烟测试：16 项检查（服务、页面、情绪、记忆、红线、耗时）
+# 下载语音识别模型（150MB+，不进仓库；自带长度校验，能识别被截断的残片）
+python experiments/download_asr_model.py
+python experiments/download_asr_model.py --check     # 只检查本地模型是否完整
+
+：16 项检查（服务、页面、情绪、记忆、红线、耗时）
 # D3 彩排前一小时跑一遍，比人工点更快发现坏掉的东西
 python experiments/smoke_test.py
 

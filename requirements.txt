@@ -6,7 +6,11 @@ fastapi>=0.110,<1.0
 uvicorn[standard]>=0.29
 python-multipart>=0.0.9
 
-# ASR：本地语音识别（首次运行会自动下载 small 模型，建议提前下好放好）
+# ASR：本地语音识别
+# 注意：装完这个包还要单独下模型（base 约 150MB / small 约 500MB，不进仓库）
+#   下载命令： python experiments/download_asr_model.py
+#   检查命令： python experiments/download_asr_model.py --check
+# 不要依赖 faster-whisper 自带的 HF 下载：国内常卡死，且缓存写到用户目录可能没权限
 faster-whisper>=1.0.3
 
 # TTS：微软 edge-tts，免费，中文音色好
