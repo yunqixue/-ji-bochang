@@ -722,6 +722,165 @@
   html[data-theme="cyber"] .meter .fill.neg { background: linear-gradient(90deg, #ff4d6d, #ff9f43); }
 
   html[data-theme="cyber"] .call-status::before { background: var(--ok); box-shadow: 0 0 0 3px rgba(34, 230, 160, .18); }
+  /* ============ 主题：甜美式 ============ */
+  html[data-theme="sweet"] {
+    --bg: #fff6fb;
+    --panel: rgba(255, 250, 253, .88);
+    --line: rgba(214, 120, 170, .18);
+    --ink: #4a3540;
+    --muted: #a4808f;
+    --accent: #f472b6;
+    --accent-deep: #ec4899;
+    --accent-soft: #fde7f3;
+    --user-bubble: #f3e8ff;
+    --danger: #e11d48;
+    --ok: #34d399;
+    --shadow: 0 18px 50px -18px rgba(220, 120, 170, .3);
+    --shadow-soft: 0 6px 22px -10px rgba(220, 120, 170, .28);
+  }
+  html[data-theme="sweet"] body {
+    background:
+      radial-gradient(900px 520px at 12% -8%, #ffe3f2 0%, transparent 62%),
+      radial-gradient(820px 480px at 92% 4%, #eae4ff 0%, transparent 58%),
+      linear-gradient(180deg, #fff9fd 0%, #fff4fa 46%, #fdeef7 100%);
+  }
+  html[data-theme="sweet"] .stage {
+    background: radial-gradient(120% 100% at 50% 8%, #fffafd 0%, #fdeaf6 44%, #f7dcec 100%);
+  }
+  html[data-theme="sweet"] .avatar-fallback {
+    background: radial-gradient(circle at 50% 34%, #fffafc 0%, #fce7f3 66%, #f6d9e8 100%);
+    border-color: rgba(240, 170, 210, .55);
+  }
+
+  /* ============ 主题：自然风 ============ */
+  html[data-theme="nature"] {
+    --bg: #f3f7ee;
+    --panel: rgba(252, 253, 249, .88);
+    --line: rgba(90, 120, 80, .18);
+    --ink: #2f3a2e;
+    --muted: #7c8b76;
+    --accent: #6f9e5a;
+    --accent-deep: #578546;
+    --accent-soft: #e6f0dd;
+    --user-bubble: #eef3e7;
+    --danger: #c05b4d;
+    --ok: #4f9d69;
+    --shadow: 0 18px 50px -18px rgba(80, 110, 70, .26);
+    --shadow-soft: 0 6px 22px -10px rgba(80, 110, 70, .22);
+  }
+  html[data-theme="nature"] body {
+    background:
+      radial-gradient(900px 520px at 10% -8%, #e4f0d9 0%, transparent 62%),
+      radial-gradient(820px 480px at 92% 2%, #f0ead8 0%, transparent 58%),
+      linear-gradient(180deg, #f7faf2 0%, #f2f7ec 48%, #eaf1e2 100%);
+  }
+  html[data-theme="nature"] .stage {
+    background: radial-gradient(120% 100% at 50% 8%, #fbfdf8 0%, #eaf2e0 44%, #dfeacf 100%);
+  }
+  html[data-theme="nature"] .avatar-fallback {
+    background: radial-gradient(circle at 50% 34%, #fbfdf7 0%, #e8f0dc 66%, #d9e6c6 100%);
+    border-color: rgba(150, 180, 130, .55);
+  }
+
+  /* ============ 主题：暗夜紫 ============ */
+  html[data-theme="night"] {
+    --bg: #0e0a18;
+    --panel: rgba(24, 17, 38, .82);
+    --line: rgba(180, 140, 255, .22);
+    --ink: #ece4ff;
+    --muted: #a294c0;
+    --accent: #b98cff;
+    --accent-deep: #9d6bff;
+    --accent-soft: rgba(185, 140, 255, .12);
+    --user-bubble: rgba(255, 196, 90, .12);
+    --danger: #ff6b81;
+    --ok: #58e0a5;
+    --shadow: 0 20px 60px -24px rgba(140, 100, 255, .4);
+    --shadow-soft: 0 8px 26px -12px rgba(140, 100, 255, .3);
+  }
+  html[data-theme="night"] body {
+    background:
+      radial-gradient(900px 520px at 12% -10%, rgba(140, 90, 255, .18), transparent 62%),
+      radial-gradient(820px 480px at 92% 2%, rgba(255, 170, 80, .10), transparent 58%),
+      linear-gradient(180deg, #120c1f 0%, #0b0713 58%, #0e0a18 100%);
+  }
+  html[data-theme="night"] .stage {
+    background: radial-gradient(120% 100% at 50% 8%, #1a1230 0%, #120c22 46%, #0a0714 100%);
+    border-color: rgba(180, 140, 255, .2);
+  }
+  html[data-theme="night"] .avatar-fallback {
+    background: radial-gradient(circle at 50% 34%, #241a3c 0%, #1a1229 66%, #100b1c 100%);
+    border-color: rgba(180, 140, 255, .3);
+  }
+  html[data-theme="night"] .avatar-fallback .cap { color: #8f7fb0; }
+  html[data-theme="night"] .chip,
+  html[data-theme="night"] .ctrl,
+  html[data-theme="night"] .pill,
+  html[data-theme="night"] .btn-ghost {
+    background: rgba(20, 14, 32, .85);
+    color: #b9a9d8;
+  }
+  html[data-theme="night"] .composer,
+  html[data-theme="night"] .chat-card,
+  html[data-theme="night"] .stage-card { background: rgba(20, 14, 32, .84); }
+  html[data-theme="night"] input,
+  html[data-theme="night"] .composer input,
+  html[data-theme="night"] .call-input input {
+    background: rgba(12, 8, 20, .9);
+    color: #ece4ff;
+    border-color: rgba(180, 140, 255, .22);
+  }
+  html[data-theme="night"] input::placeholder { color: #6b5c8a; }
+  html[data-theme="night"] .bubble { background: rgba(26, 18, 42, .94); border-color: rgba(180, 140, 255, .18); }
+  html[data-theme="night"] .row.me .bubble { background: rgba(255, 196, 90, .10); border-color: rgba(255, 196, 90, .26); }
+  html[data-theme="night"] .subtitle span { color: #ddd0f5; }
+  html[data-theme="night"] .pip { background: #171029; }
+  html[data-theme="night"] .meter .fill { background: linear-gradient(90deg, #b98cff, #ffc45a); }
+
+  /* 主题下拉框：跟 chip 同一套外观 */
+  select.chip {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 26px;
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: calc(100% - 14px) 52%, calc(100% - 9px) 52%;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    outline: none;
+  }
+  select.chip option { background: #fff; color: #333; }
+
+  /* ============ 形象动作 ============ */
+  @keyframes floaty {
+    0%, 100% { transform: scale(1) rotate(-.45deg); }
+    50%      { transform: scale(1.012) rotate(.45deg); }
+  }
+  @keyframes tilt {
+    0%, 100% { transform: rotate(-1.3deg) translateY(0); }
+    50%      { transform: rotate(.4deg) translateY(-4px); }
+  }
+  @keyframes listenPulse {
+    0%   { opacity: .95; }
+    60%  { opacity: .18; }
+    100% { opacity: .95; }
+  }
+
+  /* 待机：呼吸 + 轻微摇摆（覆盖原来的纯缩放） */
+  .avatar-frame { animation: floaty 6s ease-in-out infinite; }
+  .stage[data-state="speaking"] .avatar-frame { animation: floaty 2.4s ease-in-out infinite; }
+  /* 在听：稍快一点，加一圈呼吸波纹 */
+  .stage[data-state="listening"] .avatar-frame { animation: floaty 3.4s ease-in-out infinite; }
+  .stage[data-state="listening"] .avatar-frame::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 3px rgba(90, 200, 255, .5);
+    pointer-events: none;
+    animation: listenPulse 1.3s ease-out infinite;
+  }
+  /* 在思考：微微倾头 */
+  .stage[data-state="thinking"] .avatar-frame { animation: tilt 3.2s ease-in-out infinite; }
 </style>
 </head>
 <body>
@@ -735,7 +894,13 @@
       <span class="call-timer" id="call-timer">00:00</span>
     </div>
     <div class="grow"></div>
-    <button class="chip" id="btn-theme" type="button">奶油</button>
+    <select class="chip" id="theme-sel" title="换背景风格">
+      <option value="sweet">甜美式</option>
+      <option value="cream">奶油色</option>
+      <option value="cyber">科技感</option>
+      <option value="nature">自然风</option>
+      <option value="night">暗夜紫</option>
+    </select>
     <button class="chip" id="btn-to-chat" type="button">文字</button>
     <button class="chip danger" id="btn-hangup" type="button">挂断</button>
   </header>
@@ -787,7 +952,13 @@
     <div class="status">
       <span class="pill" id="pill-asr"><i></i>语音识别</span>
       <span class="pill" id="pill-tts"><i></i>语音输出</span>
-      <button class="chip" id="btn-theme2" type="button">奶油</button>
+      <select class="chip" id="theme-sel2" title="换背景风格">
+        <option value="sweet">甜美式</option>
+        <option value="cream">奶油色</option>
+        <option value="cyber">科技感</option>
+        <option value="nature">自然风</option>
+        <option value="night">暗夜紫</option>
+      </select>
       <button class="chip" id="btn-to-call" type="button">回到通话</button>
       <button class="chip" id="btn-reset" type="button">重开一轮</button>
     </div>
@@ -865,13 +1036,14 @@
   function $(id) { return document.getElementById(id); }
 
   var THEME_KEY = "emotion_agent_theme";
+  var THEMES = ["sweet", "cream", "cyber", "nature", "night"];
 
   function setTheme(name, remember) {
-    var t = (name === "cyber") ? "cyber" : "cream";
+    var t = (THEMES.indexOf(name) >= 0) ? name : "cream";
     document.documentElement.setAttribute("data-theme", t);
-    ["btn-theme", "btn-theme2"].forEach(function (id) {
-      var b = $(id);
-      if (b) { b.textContent = (t === "cyber") ? "奶油" : "赛博"; }
+    ["theme-sel", "theme-sel2"].forEach(function (id) {
+      var s = $(id);
+      if (s) { s.value = t; }
     });
     if (remember !== false) {
       try { localStorage.setItem(THEME_KEY, t); } catch (e) { }
@@ -879,18 +1051,13 @@
   }
 
   function initialTheme() {
-    var q = (location.search.match(/[?&]theme=(cyber|cream)\b/) || [])[1];
-    if (q) { return q; }
+    var q = (location.search.match(/[?&]theme=([a-z]+)/) || [])[1];
+    if (q && THEMES.indexOf(q) >= 0) { return q; }
     try {
       var saved = localStorage.getItem(THEME_KEY);
-      if (saved) { return saved; }
+      if (saved && THEMES.indexOf(saved) >= 0) { return saved; }
     } catch (e) { }
-    return "cyber";          // 需求先说赛博朋克，切回奶油只要点一下
-  }
-
-  function toggleTheme() {
-    var now = document.documentElement.getAttribute("data-theme") === "cyber" ? "cream" : "cyber";
-    setTheme(now);
+    return "cyber";
   }
 
   // ---------------- 视图切换 ----------------
@@ -1113,7 +1280,7 @@
     var wasSpeaking = speaking;
     speaking = (state === "speaking");
     [stageEl, stageEl2].forEach(function (el) {
-      if (el) { el.setAttribute("data-state", speaking ? "speaking" : "idle"); }
+      if (el) { el.setAttribute("data-state", state); }
     });
     badgeState.textContent = STATE_CN[state] || state;
     if (wasSpeaking !== speaking) { refreshImages(); }
@@ -1535,8 +1702,10 @@
       if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); sendFromCall(); }
     });
 
-    $("btn-theme").addEventListener("click", toggleTheme);
-    $("btn-theme2").addEventListener("click", toggleTheme);
+    ["theme-sel", "theme-sel2"].forEach(function (id) {
+      var s = $(id);
+      if (s) { s.addEventListener("change", function () { setTheme(s.value); }); }
+    });
     $("btn-to-chat").addEventListener("click", function () { setView("chat"); });
     $("btn-to-call").addEventListener("click", function () { setView("call"); });
     $("btn-reset").addEventListener("click", resetSession);
