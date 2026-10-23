@@ -73,6 +73,25 @@ def check_files() -> None:
         add(WARN, "表情图 0 张", "页面只能显示占位块（A 负责出图）")
 
 
+def check_asr_model() -> None:
+    """语音识别模型是否就位（模型 150MB+ 不进仓库，队友要单独下载）。"""
+    try:
+        sys.path.insert(0, REPO_ROOT)
+        from src.perception import asr  # noqa: PLC0415
+    except Exception:
+        add(WARN, "ASR 模型", "无法导入 src.perception.asr")
+        return
+
+    if not asr.available():
+        add(WARN, "ASR 模型", "先装 faster-whisper，再下载模型")
+        return
+    if asr.model_ready():
+        size = os.getenv("ASR_MODEL_SIZE", "small")
+        add(OK, f"ASR 模型就绪（{size}）", "本地目录已有模型")
+    else:
+        add(WARN, "ASR 模型未下载", "python experiments/download_asr_model.py（约150MB）")
+
+
 def check_env_vars() -> None:
     key = os.getenv("DEEPSEEK_API_KEY", "")
     key_file = os.path.join(REPO_ROOT, "api_key.txt")
@@ -124,6 +143,8 @@ def main() -> int:
                  hint="pip install -i https://pypi.tuna.tsinghua.edu.cn/simple faster-whisper")
 
     check_env_vars()
+
+    check_asr_model()
     check_files()
     check_service()
 
