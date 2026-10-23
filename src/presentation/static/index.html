@@ -590,6 +590,138 @@
     .stage-card .stage { min-height: 200px; }
     .view-call { padding: 12px 12px 14px; gap: 8px; }
   }
+  /* ============ 赛博朋克主题（html[data-theme="cyber"]）============
+     只覆盖颜色变量 + 少数硬编码背景，默认主题完全不受影响。 */
+  html[data-theme="cyber"] {
+    --bg: #05070e;
+    --panel: rgba(11, 17, 29, .78);
+    --line: rgba(0, 229, 255, .22);
+    --ink: #d9f6ff;
+    --muted: #7ea3b8;
+    --accent: #00e5ff;
+    --accent-deep: #00b3cc;
+    --accent-soft: rgba(0, 229, 255, .10);
+    --user-bubble: rgba(255, 0, 128, .14);
+    --danger: #ff4d6d;
+    --ok: #22e6a0;
+    --shadow: 0 20px 60px -24px rgba(0, 229, 255, .35);
+    --shadow-soft: 0 8px 26px -12px rgba(0, 229, 255, .28);
+  }
+
+  html[data-theme="cyber"] body {
+    background:
+      radial-gradient(900px 520px at 10% -10%, rgba(0, 229, 255, .12), transparent 62%),
+      radial-gradient(820px 480px at 94% 2%, rgba(255, 0, 128, .10), transparent 58%),
+      linear-gradient(180deg, #070b15 0%, #04060c 58%, #05080f 100%);
+  }
+
+  /* 网格线 */
+  html[data-theme="cyber"] body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background-image:
+      linear-gradient(rgba(0, 229, 255, .055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 229, 255, .055) 1px, transparent 1px);
+    background-size: 46px 46px;
+    mask-image: radial-gradient(circle at 50% 30%, #000 0%, transparent 78%);
+  }
+
+  html[data-theme="cyber"] .app,
+  html[data-theme="cyber"] .view-call,
+  html[data-theme="cyber"] .view-chat { position: relative; z-index: 1; }
+
+  html[data-theme="cyber"] .stage {
+    background: radial-gradient(120% 100% at 50% 8%, #0a1424 0%, #070c18 46%, #04070e 100%);
+    border-color: rgba(0, 229, 255, .22);
+    box-shadow: 0 0 0 1px rgba(0, 229, 255, .10), 0 26px 70px -30px rgba(0, 229, 255, .5);
+  }
+
+  html[data-theme="cyber"] .stage::before {
+    background: radial-gradient(50% 60% at 50% 50%, rgba(0, 229, 255, .16), transparent 70%);
+  }
+
+  /* 人物照片压一点冷调，别和霓虹打架 */
+  html[data-theme="cyber"] .avatar-img { filter: saturate(1.06) contrast(1.05) brightness(.96); }
+
+  html[data-theme="cyber"] .avatar-frame { box-shadow: 0 0 0 1px rgba(0, 229, 255, .35), 0 0 34px -6px rgba(0, 229, 255, .55); }
+
+  html[data-theme="cyber"] .avatar-fallback {
+    background: radial-gradient(circle at 50% 34%, #0d1a2c 0%, #0a1220 66%, #060a12 100%);
+    border-color: rgba(0, 229, 255, .35);
+  }
+  html[data-theme="cyber"] .avatar-fallback .cap { color: #5f93ab; }
+
+  html[data-theme="cyber"] .pip { background: #0a1220; border-color: rgba(0, 229, 255, .3); }
+  html[data-theme="cyber"] .pip-off { color: #5f93ab; }
+
+  html[data-theme="cyber"] .chip,
+  html[data-theme="cyber"] .ctrl,
+  html[data-theme="cyber"] .pill,
+  html[data-theme="cyber"] .btn-ghost {
+    background: rgba(8, 14, 24, .82);
+    border-color: rgba(0, 229, 255, .25);
+    color: #9fc6d8;
+  }
+
+  html[data-theme="cyber"] .chip:hover,
+  html[data-theme="cyber"] .ctrl:hover:not(:disabled),
+  html[data-theme="cyber"] .btn-ghost:hover:not(:disabled) {
+    color: #d9f6ff;
+    border-color: rgba(0, 229, 255, .6);
+    box-shadow: 0 0 18px -6px rgba(0, 229, 255, .8);
+  }
+
+  html[data-theme="cyber"] .ctrl.on,
+  html[data-theme="cyber"] .send-btn {
+    background: linear-gradient(135deg, #00e5ff, #0a84ff);
+    color: #04121a;
+    box-shadow: 0 0 24px -6px rgba(0, 229, 255, .85);
+  }
+
+  html[data-theme="cyber"] .send-btn:hover:not(:disabled) { background: linear-gradient(135deg, #4af2ff, #2b9cff); }
+
+  html[data-theme="cyber"] .chip.danger { color: #ff8fa6; border-color: rgba(255, 77, 109, .45); }
+  html[data-theme="cyber"] .chip.danger:hover { background: rgba(255, 77, 109, .12); }
+
+  html[data-theme="cyber"] .composer,
+  html[data-theme="cyber"] .chat-card,
+  html[data-theme="cyber"] .stage-card { background: rgba(9, 14, 24, .82); border-color: rgba(0, 229, 255, .18); }
+
+  html[data-theme="cyber"] input,
+  html[data-theme="cyber"] .composer input,
+  html[data-theme="cyber"] .call-input input {
+    background: rgba(4, 9, 16, .9);
+    border-color: rgba(0, 229, 255, .22);
+    color: #d9f6ff;
+  }
+
+  html[data-theme="cyber"] input::placeholder { color: #4f7688; }
+  html[data-theme="cyber"] input:focus { border-color: rgba(0, 229, 255, .7); box-shadow: 0 0 0 3px rgba(0, 229, 255, .16); }
+
+  html[data-theme="cyber"] .bubble { background: rgba(10, 18, 30, .92); border-color: rgba(0, 229, 255, .18); color: #cfeefc; }
+  html[data-theme="cyber"] .row.me .bubble { background: rgba(255, 0, 128, .12); border-color: rgba(255, 0, 128, .3); }
+  html[data-theme="cyber"] .bubble.err { background: rgba(255, 77, 109, .12); border-color: rgba(255, 77, 109, .35); color: #ffb3c1; }
+
+  html[data-theme="cyber"] .subtitle span { color: #bfe9fa; }
+  html[data-theme="cyber"] .meta { color: #5b7f90; }
+  html[data-theme="cyber"] .hint { color: #6f97a8; }
+  html[data-theme="cyber"] .hint.warn { color: #ffc86b; }
+
+  html[data-theme="cyber"] .badge {
+    background: rgba(0, 229, 255, .10);
+    color: #7fe4f7;
+    border-color: rgba(0, 229, 255, .3);
+  }
+  html[data-theme="cyber"] .badge.state { background: rgba(34, 230, 160, .10); color: #6ff0c0; border-color: rgba(34, 230, 160, .3); }
+
+  html[data-theme="cyber"] .meter .track { background: rgba(0, 229, 255, .12); }
+  html[data-theme="cyber"] .meter .fill { background: linear-gradient(90deg, #00e5ff, #7b5cff); }
+  html[data-theme="cyber"] .meter .fill.neg { background: linear-gradient(90deg, #ff4d6d, #ff9f43); }
+
+  html[data-theme="cyber"] .call-status::before { background: var(--ok); box-shadow: 0 0 0 3px rgba(34, 230, 160, .18); }
 </style>
 </head>
 <body>
@@ -603,6 +735,7 @@
       <span class="call-timer" id="call-timer">00:00</span>
     </div>
     <div class="grow"></div>
+    <button class="chip" id="btn-theme" type="button">奶油</button>
     <button class="chip" id="btn-to-chat" type="button">文字</button>
     <button class="chip danger" id="btn-hangup" type="button">挂断</button>
   </header>
@@ -654,6 +787,7 @@
     <div class="status">
       <span class="pill" id="pill-asr"><i></i>语音识别</span>
       <span class="pill" id="pill-tts"><i></i>语音输出</span>
+      <button class="chip" id="btn-theme2" type="button">奶油</button>
       <button class="chip" id="btn-to-call" type="button">回到通话</button>
       <button class="chip" id="btn-reset" type="button">重开一轮</button>
     </div>
@@ -729,6 +863,35 @@
   var STATE_CN = { idle: "待机", thinking: "在想", speaking: "说话中", listening: "在听" };
 
   function $(id) { return document.getElementById(id); }
+
+  var THEME_KEY = "emotion_agent_theme";
+
+  function setTheme(name, remember) {
+    var t = (name === "cyber") ? "cyber" : "cream";
+    document.documentElement.setAttribute("data-theme", t);
+    ["btn-theme", "btn-theme2"].forEach(function (id) {
+      var b = $(id);
+      if (b) { b.textContent = (t === "cyber") ? "奶油" : "赛博"; }
+    });
+    if (remember !== false) {
+      try { localStorage.setItem(THEME_KEY, t); } catch (e) { }
+    }
+  }
+
+  function initialTheme() {
+    var q = (location.search.match(/[?&]theme=(cyber|cream)\b/) || [])[1];
+    if (q) { return q; }
+    try {
+      var saved = localStorage.getItem(THEME_KEY);
+      if (saved) { return saved; }
+    } catch (e) { }
+    return "cyber";          // 需求先说赛博朋克，切回奶油只要点一下
+  }
+
+  function toggleTheme() {
+    var now = document.documentElement.getAttribute("data-theme") === "cyber" ? "cream" : "cyber";
+    setTheme(now);
+  }
 
   // ---------------- 视图切换 ----------------
   var currentView = "call";
@@ -1372,6 +1535,8 @@
       if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); sendFromCall(); }
     });
 
+    $("btn-theme").addEventListener("click", toggleTheme);
+    $("btn-theme2").addEventListener("click", toggleTheme);
     $("btn-to-chat").addEventListener("click", function () { setView("chat"); });
     $("btn-to-call").addEventListener("click", function () { setView("call"); });
     $("btn-reset").addEventListener("click", resetSession);
@@ -1402,6 +1567,7 @@
   // ---------------- 启动 ----------------
   function init() {
     ensureSession();
+    setTheme(initialTheme(), false);
     bind();
     setView(initialView());
     setStageState("idle");
