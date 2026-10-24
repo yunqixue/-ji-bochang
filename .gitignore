@@ -89,3 +89,6 @@ logs/
 
 # 本地工具（ffmpeg 81MB，不进仓库）
 experiments/imgtool/bin/
+
+# 例外：说话片段是演示必需的生成物，单个 < 400KB，进仓库（原始大视频仍不进）
+!src/presentation/static/avatar/*.mp4
