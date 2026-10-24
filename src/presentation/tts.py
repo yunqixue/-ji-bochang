@@ -96,9 +96,16 @@ def _sapi_save(text: str, out_path: str, rate: int = 0) -> None:
         "Add-Type -AssemblyName System.Speech;"
         "$s=New-Object System.Speech.Synthesis.SpeechSynthesizer;"
         f"$s.Rate={int(rate)};"
-        "$zh=$s.GetInstalledVoices() | Where-Object {$_.VoiceInfo.Culture.Name -like 'zh*'} "
-        "| Where-Object {$_.Enabled} | Select-Object -First 1;"
-        "if($zh){$s.SelectVoice($zh.VoiceInfo.Name)};"
+        # 只接受中文发音人：优先中文女声，其次任意中文。
+        # ★ 这一条不能省：没有中文包时 SAPI 会退到系统默认发音人，
+        #   在很多机器上那是个英文男声，硬读中文会变成"像男生说话"，比没声音更糟。
+        "$all=$s.GetInstalledVoices() | Where-Object {$_.Enabled};"
+        "$zh=$all | Where-Object {$_.VoiceInfo.Culture.Name -like 'zh*'};"
+        "$zhf=$zh | Where-Object {$_.VoiceInfo.Gender -eq 'Female'};"
+        "$pick=$null;"
+        "if($zhf){$pick=$zhf | Select-Object -First 1} elseif($zh){$pick=$zh | Select-Object -First 1};"
+        "if(-not $pick){Write-Error '没有可用的中文语音包'; exit 2};"
+        "$s.SelectVoice($pick.VoiceInfo.Name);"
         f"$s.SetOutputToWaveFile('{out_path}');"
         f"$t=[System.IO.File]::ReadAllText('{txt_path}',[System.Text.Encoding]::UTF8);"
         "$s.Speak($t);"
@@ -109,10 +116,13 @@ def _sapi_save(text: str, out_path: str, rate: int = 0) -> None:
             ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
             capture_output=True, timeout=90,
         )
-        if result.returncode != 0:
-            raise RuntimeError(result.stderr.decode("utf-8", "ignore")[:200])
-        if not os.path.exists(out_path) or os.path.getsize(out_path) < 1000:
-            raise RuntimeError("SAPI 没有生成有效音频（可能是缺少中文语音包）")
+        ok_file = os.path.exists(out_path) and os.path.getsize(out_path) > 1000
+        if result.returncode != 0 or not ok_file:
+            detail = result.stderr.decode("utf-8", "ignore").strip()[:200]
+            raise RuntimeError(
+                "SAPI 没出声（本机没有中文语音包，或系统不让程序调用语音）"
+                + ("：" + detail if detail else "")
+            )
     finally:
         try:
             os.remove(txt_path)
@@ -121,8 +131,27 @@ def _sapi_save(text: str, out_path: str, rate: int = 0) -> None:
 
 
 def _pyttsx3_save(text: str, out_path: str) -> None:
+    """pyttsx3 兜底。**必须挑中文发音人**，否则会用系统默认的英文男声硬读中文。
+
+    这是"声音像男生"的另一个来源：没有中文包时 pyttsx3 的默认 voice 经常是
+    Microsoft David（英文男声），念中文会变成奇怪的男声。宁可失败也不要用它。
+    """
     import pyttsx3
     engine = pyttsx3.init()
+    picked = None
+    try:
+        for v in engine.getProperty("voices"):
+            langs = " ".join(str(x) for x in (getattr(v, "languages", None) or []))
+            name = (getattr(v, "name", "") or "")
+            if ("zh" in langs.lower() or "chinese" in name.lower()
+                    or "huihui" in name.lower() or "yaoyao" in name.lower()):
+                picked = v.id
+                break
+    except Exception:
+        picked = None
+    if not picked:
+        raise RuntimeError("pyttsx3 没有可用的中文发音人（避免用英文男声念中文）")
+    engine.setProperty("voice", picked)
     engine.save_to_file(text, out_path)
     engine.runAndWait()
 

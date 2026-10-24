@@ -72,6 +72,9 @@ src/presentation/static/tts/*.mp3
 src/presentation/static/tts/*.wav
 experiments/result_*.json
 experiments/_*.txt
+# 例外：音色试听样本要进仓库，三个人得听同一批文件才好讨论"像不像女生"
+#（9 段共约 280KB，远低于单文件 5MB 的上限；可用 experiments/make_voice_samples.py 重新生成）
+!experiments/voicetest/*.mp3
 # ===== 本地模型与语音包（体积大，不进仓库）=====
 data/models/
 *.onnx

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>小雨的音色试听（挑一个）</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; padding: 28px 22px 60px;
+    background: #0b1220; color: #dbe6f3;
+    font: 15px/1.7 "Microsoft YaHei", system-ui, sans-serif;
+  }
+  h1 { font-size: 20px; margin: 0 0 6px; }
+  .sub { color: #8fa6c0; font-size: 13px; margin-bottom: 22px; }
+  .note {
+    background: #12202f; border: 1px solid #1f3448; border-left: 3px solid #35c2ff;
+    padding: 12px 14px; border-radius: 8px; margin: 0 0 22px;
+    font-size: 13px; color: #b9cde2;
+  }
+  .note b { color: #fff; }
+  h2 { font-size: 15px; margin: 26px 0 10px; color: #7fd4ff; }
+  .row {
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 14px; margin-bottom: 8px;
+    background: #101a29; border: 1px solid #1d2c3f; border-radius: 10px;
+  }
+  .row.cur { border-color: #ffb44d; background: #1b1710; }
+  .label { flex: 1; min-width: 0; }
+  .label b { font-weight: 600; }
+  .tag {
+    display: inline-block; font-size: 11.5px; padding: 1px 7px; border-radius: 999px;
+    background: #1d2c3f; color: #9fb6cd; margin-left: 6px;
+  }
+  .tag.cur { background: #ffb44d; color: #241a06; }
+  .f0 { color: #7fd4ff; font-variant-numeric: tabular-nums; font-size: 13px; }
+  .hint { color: #7d93a8; font-size: 12.5px; }
+  audio { width: 260px; height: 34px; }
+  code { background: #16233a; padding: 1px 6px; border-radius: 4px; font-size: 12.5px; }
+</style>
+</head>
+<body>
+
+<h1>小雨的声音：挑一个</h1>
+<div class="sub">同一句话，9 种音色。听完告诉我编号就行（比如"用 B2"）。</div>
+
+<div class="note">
+  <b>先说结论：现在用的声音，基频中位数 283 Hz —— 不可能是男声</b>（成年男声 85–180 Hz，女童 250–300 Hz）。
+  如果听到的是"像男生"的声音，几乎可以肯定是<b>没走在线合成、退到了本机离线语音</b>：
+  那种情况下用的是系统默认发音人，很可能是个男声英文音色在硬读中文。
+  <br>怎么确认：浏览器打开 <code>http://127.0.0.1:8000/api/health</code>，看
+  <code>tts_last_backend</code> —— <code>edge</code> 才是在线音色，<code>sapi</code> 就是退到了离线兜底。
+  <br>下面这 9 个都是<b>在线音色</b>，请在能上网的状态下试听。
+</div>
+
+<h2>A 组 · 小雨-Yi（现在用的就是这个音色）</h2>
+
+<div class="row cur">
+  <div class="label">
+    <b>A1 · 现在线上用的</b><span class="tag cur">当前</span>
+    <div class="hint">小雨-Yi，压低 1 个半音（-15Hz），语速慢 10%</div>
+  </div>
+  <div class="f0">283 Hz</div>
+  <audio controls preload="none" src="now.mp3"></audio>
+</div>
+
+<div class="row">
+  <div class="label">
+    <b>A2 · 小雨-Yi 原调</b>
+    <div class="hint">不加压低，正常语速 —— 比 A1 明显更轻快</div>
+  </div>
+  <div class="f0">314 Hz</div>
+  <audio controls preload="none" src="yi_p0.mp3"></audio>
+</div>
+
+<div class="row">
+  <div class="label">
+    <b>A3 · 小雨-Yi 升 25Hz</b>
+    <div class="hint">更"女童"一点；再高就要小心变尖、失真</div>
+  </div>
+  <div class="f0">372 Hz</div>
+  <audio controls preload="none" src="yi_p25.mp3"></audio>
+</div>
+
+<div class="row">
+  <div class="label">
+    <b>A4 · 小雨-Yi 升 40Hz</b>
+    <div class="hint">极限值，听听是不是太尖了（我判断这个多半过头）</div>
+  </div>
+  <div class="f0">364 Hz</div>
+  <audio controls preload="none" src="yi_p40.mp3"></audio>
+</div>
+
+<h2>B 组 · 晓晓-Xiaoxiao（最成熟、最"暖"，但更像成年人）</h2>
+
+<div class="row">
+  <div class="label">
+    <b>B1 · 晓晓 原调</b>
+    <div class="hint">一听就是成年女性，温柔，但不像九岁</div>
+  </div>
+  <div class="f0">258 Hz</div>
+  <audio controls preload="none" src="xx_p0.mp3"></audio>
+</div>
+
+<div class="row">
+  <div class="label">
+    <b>B2 · 晓晓 升 25Hz</b>
+    <div class="hint">抬高一点，兼顾"暖"和"小"</div>
+  </div>
+  <div class="f0">302 Hz</div>
+  <audio controls preload="none" src="xx_p25.mp3"></audio>
+</div>
+
+<h2>C 组 · 晓雨-HsiaoYu（台湾腔，声音最"小朋友"）</h2>
+
+<div class="row">
+  <div class="label">
+    <b>C1 · 晓雨 原调</b>
+    <div class="hint">明显更稚嫩，但有台湾口音</div>
+  </div>
+  <div class="f0">203 Hz</div>
+  <audio controls preload="none" src="hy_p0.mp3"></audio>
+</div>
+
+<div class="row">
+  <div class="label">
+    <b>C2 · 晓雨 升 25Hz</b>
+    <div class="hint">更亮一点，口音还在</div>
+  </div>
+  <div class="f0">235 Hz</div>
+  <audio controls preload="none" src="hy_p25.mp3"></audio>
+</div>
+
+<h2>D 组 · 晓臻-HsiaoChen（台湾腔，偏温柔）</h2>
+
+<div class="row">
+  <div class="label">
+    <b>D1 · 晓臻 原调</b>
+    <div class="hint">温柔，但口音和"九岁"对不上</div>
+  </div>
+  <div class="f0">216 Hz</div>
+  <audio controls preload="none" src="hc_p0.mp3"></audio>
+</div>
+
+<div class="note" style="margin-top:26px">
+  <b>怎么回我</b>：微信发「用 A2」这种就行。你定了之后我改 <code>tts.py</code> 里的默认音色和音高偏移，
+  再重新跑一遍演示缓存（9 句音频会全部换成新音色），大约 3 分钟。
+  <br>另外提醒：这几段是<b>单独生成的试听样本</b>，不是现在页面里的声音；页面里的声音要改完配置并重启服务才会变。
+</div>
+
+</body>
+</html>
