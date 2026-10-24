@@ -981,10 +981,16 @@
     background: linear-gradient(to top, rgba(120, 82, 54, .2), transparent);
   }
 
-  /* --- ② 形象随声音动：--voice 由 JS 按 mp3 的实时音量写进去（0~1） --- */
+  /* --- ② 形象动效：一条 transform 同时管两件事 ---
+     · 随声音推近：--voice（JS 按 mp3 实时音量写入）
+     · 目光跟随：--gx / --gy（C 加的，鼠标在舞台里移动时写入，-0.5 ~ +0.5）
+     ★ 必须写在同一条 transform 里：transform 是覆盖型属性，分开写后面那条会把前面那条顶掉。
+     实测过一次：两条分开写时，鼠标停在舞台上（--gx 有值）"随声音推近"就整个失效了。 */
   .avatar-img {
-    transform: scale(calc(1 + var(--voice, 0) * 0.035));
-    transition: opacity 200ms ease-in-out, transform 110ms linear;
+    transform:
+      scale(calc(1 + var(--voice, 0) * 0.035))
+      translate(calc(var(--gx, 0) * 5px), calc(var(--gy, 0) * 4px));
+    transition: opacity 200ms ease-in-out, transform 140ms ease-out;
   }
 
   /* 换表情时闪一下柔光，让"换脸"看起来是主动的表情变化，不是图片换了。
@@ -1087,10 +1093,10 @@
   .welcome .w-tips button:hover { opacity: 1; transform: translateY(-1px); }
   .welcome .w-tips button:disabled { cursor: default; opacity: .3; }
 
-  /* 目光跟随：立绘朝鼠标方向轻微平移，像在看着对方 */
+  /* 目光跟随：立绘朝鼠标方向轻微平移，像在看着对方。
+     ★ 这里只声明变量默认值；平移与"随声音推近"合在上面那一条 .avatar-img 的 transform 里 ——
+       单独再写一条 .stage:hover .avatar-img{transform:...} 会把 --voice 的推近整条顶掉（实测发生过）。 */
   .stage { --gx: 0; --gy: 0; }
-  .avatar-img { transition: opacity 200ms ease-in-out, transform .5s ease-out; }
-  .stage:hover .avatar-img { transform: translate(calc(var(--gx) * 5px), calc(var(--gy) * 4px)); }
 </style>
 </head>
 <body>
