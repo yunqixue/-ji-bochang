@@ -3004,6 +3004,12 @@ window.avatar3d = api;
 async function boot() {
   try {
     if (!window.WebGL2RenderingContext) { return; }
+    // ★ 应急开关：地址加 ?no3d=1（或 ?avatar3d=0）强制用 2D 立绘。
+    //   3D 效果不理想或现场显卡不给力时，用它一秒钟退回 2D，不用改代码、不用重开服务。
+    if (/[?&](no3d=1|avatar3d=0)\b/.test(location.search)) {
+      console.info("[avatar3d] 已用 ?no3d=1 强制关闭，使用 2D 立绘");
+      return;
+    }
 
     // 模型文件不存在就不启动（probe 用 HEAD，几秒就能出结果）
     const probe = await fetch(GLB_URL, { method: 'HEAD' });
