@@ -2687,7 +2687,7 @@
 
     body.addEventListener("click", function (e) {
       if (dragged) { return; }
-      bounce();
+      pat();   // 摸头：压扁下沉 + 回弹 + 头顶爱心
       say(PET_LINES[Math.floor(Math.random() * PET_LINES.length)]);
       e.stopPropagation();
     });
@@ -2821,6 +2821,15 @@
         if (body && m) { body.classList.add("act-" + m[1]); }
       }, 300);
     }
+  })();
+
+  // 调试：?petclick=1 真的对小人派发一次 click，用来端到端验证"摸头"链路
+  (function petClickDebug() {
+    if (!/[?&]petclick=1\b/.test(location.search)) { return; }
+    setTimeout(function () {
+      var b = document.querySelector(".pet-body");
+      if (b) { b.click(); }
+    }, 260);
   })();
 
   if (document.readyState === "loading") {
