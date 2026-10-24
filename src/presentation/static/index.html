@@ -1259,22 +1259,8 @@
     text-shadow: 0 1px 3px rgba(0, 0, 0, .5);
   }
 
-  /* 说话时播放真实视频片段（嘴真的在动），待机时淡出回静态表情图 */
-  .talk-video {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: 50% 22%;
-    opacity: 0;
-    transition: opacity 180ms ease;
-    z-index: 2;
-    pointer-events: none;
-  }
-  .stage[data-talking="1"] .talk-video { opacity: 1; }
-  /* 3D 模型就绪时让位给 3D（3D 有真逐字口型） */
-  .stage[data-avatar3d="1"] .talk-video { display: none; }
+  /* （已撤掉「说话时插入视频片段」：硬切真人视频与 2D 立绘风格割裂，观感诡异。
+     现在说话态仍由「伪口型」承担：有 expr_<表情>_talk.webp 就换张嘴图，没有就静态图。） */
 
   /* ★ 放在所有主题之后：场景模式的铺法必须固定。
      各主题的 `background: …` 简写会把 size/repeat/attachment 一并重置成默认值，
@@ -1330,8 +1316,6 @@
   <div class="stage" id="stage" data-state="idle">
     <div class="stage-bg"><img id="bg-call" alt=""></div>
     <div class="stage-tint"></div>
-    <video class="talk-video" id="talk-call" muted loop playsinline preload="auto"
-           src="/static/avatar/talk_loop.mp4"></video>
     <div class="avatar-frame">
       <img class="avatar-img layer-a" id="avatar-a" alt="">
       <img class="avatar-img layer-b" id="avatar-b" alt="">
@@ -1417,8 +1401,6 @@
     <div class="stage" id="stage2" data-state="idle">
       <div class="stage-bg"><img id="bg-chat" alt=""></div>
       <div class="stage-tint"></div>
-      <video class="talk-video" id="talk-chat" muted loop playsinline preload="auto"
-             src="/static/avatar/talk_loop.mp4"></video>
       <div class="avatar-frame">
         <img class="avatar-img layer-a" id="avatar-c" alt="">
         <img class="avatar-img layer-b" id="avatar-d" alt="">
@@ -1786,40 +1768,12 @@
     });
   }
 
-  // 说话片段：按当前表情挑不同视频，没配的情绪退回通用片段
-  var TALK_VIDEO = {
-    happy: "talk_happy.mp4",
-    empathic: "talk_empathic.mp4",
-    sad: "talk_sad.mp4",
-    neutral: "talk_neutral.mp4",
-    surprised: "talk_surprised.mp4"
-  };
-
   function setStageState(state) {
     var wasSpeaking = speaking;
     speaking = (state === "speaking");
     [stageEl, stageEl2].forEach(function (el) {
       if (!el) { return; }
       el.setAttribute("data-state", state);
-      // 说话时播真实视频片段（嘴真的在动）；3D 就绪时由 CSS 让位给 3D
-      el.setAttribute("data-talking", speaking ? "1" : "0");
-      var v = el.querySelector(".talk-video");
-      if (v) {
-        if (speaking) {
-          // 按当前表情选片段：高兴时用笑的，共情时用抱抱那段……
-          var curLabel = (layers.call && layers.call.expr) || "neutral";
-          var file = TALK_VIDEO[curLabel] || "talk_loop.mp4";
-          var want = "/static/avatar/" + file;
-          if (v.getAttribute("data-src") !== want) {
-            v.setAttribute("data-src", want);
-            v.src = want;
-          }
-          var p = v.play();
-          if (p && p.catch) { p.catch(function () { }); }
-        } else {
-          try { v.pause(); v.currentTime = 0; } catch (e) { }
-        }
-      }
     });
     badgeState.textContent = STATE_CN[state] || state;
     var waveEl = $("voice-wave");
