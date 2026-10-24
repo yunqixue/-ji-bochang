@@ -2,8 +2,8 @@
 
 给普通用户用的情感陪伴对话智能体：**语音说一句话 → 识别情绪 → 以固定人设多轮回应 → 合成语音 → 屏幕上的角色换表情**。
 
-- 交付形式：现场演示 + 代码仓库
-- 周期：三天冲刺
+- 交付形式：现场演示 + 代码仓库（**10-25 晚上 20:00 前截止**）
+- 周期：三天冲刺（10-23 ～ 10-25）
 - 三人分工：A 张敬伟（产品与情感设计）/ B 丘羽鑫（记忆与人格工程）/ C 梁苇（交互与工程落地）
 
 ---
@@ -22,17 +22,21 @@ python experiments/download_asr_model.py
 # 3. 把 DeepSeek Key 粘进项目根目录的 api_key.txt（已 gitignore，不会进仓库）
 #    没有 Key 也能跑，只是回复会走内置 mock 模板
 
-# 4. 启动
-双击 run.cmd
-#    或命令行： python -m uvicorn app:app --host 127.0.0.1 --port 8000
+# 4. 启动（都是双击，不用敲命令）
+双击 自检.cmd            # 先看一眼：缺什么、语音到底能不能出声（30 秒出结果）
+双击 run.cmd             # 正常模式：真实模型，端口 8000
+双击 启动_离线保险.cmd     # 保险模式：只认演示脚本那 9 句，端口 8001，可以和上面同时开着
 
 # 5. 打开
 浏览器访问 http://127.0.0.1:8000
 ```
 
-**先自检再排查**：`python experiments/check_env.py` 一条命令看清缺什么。
+> 改了前端页面（`index.html`）要按 **Ctrl + F5 硬刷新**，否则浏览器会用缓存里的旧页面。
+> 改了后端代码必须重启服务。两个都是「改了没变化」的头号原因。
 
-> 服务不是常驻的，关掉窗口就停。**改了代码必须重启服务**，否则还跑旧代码。
+**先自检再排查**：双击 `自检.cmd`（等价 `python experiments/check_env.py`），一条命令看清缺什么。
+
+> 服务不是常驻的，关掉窗口就停。
 
 ---
 
@@ -54,7 +58,7 @@ python experiments/download_asr_model.py
 |---|---|---|
 | GET | `/` | 聊天页面（`src/presentation/static/index.html`） |
 | GET | `/docs` | FastAPI 自动生成的接口调试页，可直接发请求试 |
-| GET | `/api/health` | 健康检查：`{"ok":true,"asr":是否可用,"tts":是否可用,"llm":是否配了Key}` |
+| GET | `/api/health` | 健康检查：`asr`/`tts`/`llm` 是否可用、兜底缓存有几条、当前是不是离线模式、**上一次语音为什么没出声** |
 | POST | `/api/chat` | 主接口。multipart：`session_id` + （`text` 或 `audio` 二选一） |
 | POST | `/api/reset` | 清空某个会话的记忆 |
 
@@ -64,12 +68,18 @@ python experiments/download_asr_model.py
 {
   "session_id": "uuid", "turn": 3,
   "perception": {"text":"...", "emotion_label":"sad", "emotion_score":0.7, "valence":-0.6, "arousal":0.3},
-  "response": {"reply_text":"...", "target_emotion":"empathic", "speech_rate":0.9, "pitch_shift":-1.0},
+  "response": {"reply_text":"...", "target_emotion":"empathic", "speech_rate":0.9, "pitch_shift":-1.0,
+               "debug": {"used_llm": true, "fallback_source": "", "repeat_input": false,
+                         "repeat_fixed": false, "repeat_score": 0.0}},
   "audio_url": "/static/tts/xxx.mp3",
   "avatar": {"expression":"empathic", "state":"speaking"},
   "latency_ms": 3400
 }
 ```
+
+`response.debug` 是排查用的，前端不依赖它：
+`used_llm`（是不是真模型回的）· `fallback_source`（命中预置缓存时是 `demo_cache`）·
+`repeat_input`（对方是否重复了上一句）· `repeat_fixed`（是否检测到自己在重复并换掉了）。
 
 完整字段与硬规则见 `docs/接口契约.md`；**代码里的唯一事实来源是 `src/shared/contracts.py`**。
 
@@ -81,17 +91,22 @@ python experiments/download_asr_model.py
 ├── AGENTS.md                    团队约定（DSH 每次会话自动加载）
 ├── 使用方法.txt                  三个人怎么协作（pull/push、报错对照）
 ├── 口令卡.txt                    跟 AI 说话用的固定说法
-├── run.cmd / push.cmd / pull.cmd 双击用的三个按钮
+├── run.cmd                      双击：启动正常模式（端口 8000）
+├── 启动_离线保险.cmd               双击：启动保险模式（端口 8001，可与 8000 并存）
+├── 自检.cmd                      双击：环境自检，并把结果翻译成"该走哪个模式"
+├── start-demo.cmd               双击：起服务 + 开临时公网隧道（给不在场的人看）
+├── push.cmd / pull.cmd          双击：上传 / 下载
 ├── app.py                       后端入口，把三层串起来
 ├── requirements.txt             依赖清单
-├── docs/                        任务板、分工、契约、技术选型、疑难排查、决策记录
+├── docs/                        任务板、分工、契约、技术选型、疑难排查、决策记录、
+│                                演示当天操作手册、演示脚本、演示预演记录
 ├── src/perception/              语音识别（ASR）
-├── src/cognition/               情绪判断 + 人设对话 + 多轮记忆 + 红线兜底
+├── src/cognition/               情绪判断 + 人设对话 + 多轮记忆 + 红线兜底 + 防复读
 ├── src/presentation/            语音合成（TTS）+ 前端页面 + 静态资源
 ├── src/shared/                  契约数据结构（三人共用）
 ├── assets/prompts/              人设卡、系统提示词、危机话术、生图提示词
-├── assets/images/               7 张表情图 expr_*.webp（A 出图）
-├── assets/samples/              测试用例 test_cases.jsonl
+├── assets/images/               7 张表情图 expr_*.webp（A 出图；有 expr_*_talk.webp 就自动做口型）
+├── assets/samples/              测试用例、30 条对话标注表、体验问题清单
 ├── experiments/                 自检、冒烟测试、评测、预演脚本
 ├── logs/                        对话日志 chat.jsonl（不进仓库）
 └── data/                        数据集与模型（不进仓库，见 MANIFEST.md）
@@ -99,28 +114,50 @@ python experiments/download_asr_model.py
 
 ---
 
-## 五个工具脚本
+## 工具脚本（都在 `experiments/`，改完代码按需跑）
 
 ```powershell
-# 环境自检：缺依赖 / 缺 Key / 缺表情图 / 端口占用，一眼看清
+# 环境自检：缺依赖 / 缺 Key / 缺表情图 / 端口占用 / 语音能不能真出声，一眼看清
 python experiments/check_env.py
 
 # 下载语音识别模型（150MB+，不进仓库；自带长度校验，能识别被截断的残片）
 python experiments/download_asr_model.py
 python experiments/download_asr_model.py --check     # 只检查本地模型是否完整
 
-：16 项检查（服务、页面、情绪、记忆、红线、耗时）
-# D3 彩排前一小时跑一遍，比人工点更快发现坏掉的东西
+# 冒烟测试：16 项（服务、页面、情绪、记忆、红线、耗时）
+# 彩排前一小时跑一遍，比人工点更快发现坏掉的东西
 python experiments/smoke_test.py
+
+# 人设行为评测：10 条硬规矩（坦白身份 / 不懂就说不懂 / 不卖萌 / 不给大人方案 /
+# 被要求分享时必须真的讲一段 / 被问日常要讲具体小事 / 红线话术…）
+python experiments/eval_behavior.py
 
 # 情绪判断评测：改提示词前后各跑一次，看准确率变化（唯一客观依据）
 python experiments/eval_emotion            # mock 模式，秒出
 python experiments/eval_emotion --llm      # 真实调用 DeepSeek
 
+# 断网兜底自检：44 项（9 句台词 × 各种标点/漏字/同音错字变体，是否都能命中预置缓存）
+python experiments/test_fallback.py
+
 # 演示预演：把演示台词提前生成音频缓存，现场 0.003 秒命中、不碰网络
 $env:DEEPSEEK_TEMPERATURE="0.3"
 python experiments/prewarm_demo --file docs/演示脚本.txt
 ```
+
+---
+
+## 演示有两种模式（现场照着选）
+
+| | 模式 A · 正常 | 模式 B · 保险 |
+|---|---|---|
+| 怎么开 | 双击 `run.cmd` | 双击 `启动_离线保险.cmd` |
+| 端口 | 8000 | **8001**（可以和 A 同时开着，随时切窗口） |
+| 回复 | 真实模型，能应对临时提问 | 预置的 9 条真实回复，质量已验证 |
+| 延迟 | 约 3.8 秒/句（实测 3.3–4.7 秒） | **约 10 毫秒/句** |
+| 声音 | 取决于网络，偶尔一句没声 | **100%**（音频提前生成，不碰网络） |
+| 代价 | — | **只认演示脚本那 9 句**，临时改词会掉到固定模板 |
+
+现场怎么判断、怎么切、出问题怎么办：见 **`docs/演示当天操作.md`**（含"没声音怎么办"三态判断表）。
 
 ---
 
@@ -133,11 +170,10 @@ python experiments/prewarm_demo --file docs/演示脚本.txt
 # ① 演示前预演：把演示台词跑一遍，同时生成「兜底缓存」
 $env:DEEPSEEK_TEMPERATURE="0.3"
 python experiments/prewarm_demo --file docs/演示脚本.txt
-#    产物：data/demo_cache.json（输入 → 真实回复 + 已合成音频）
+#    产物：data/demo_cache.json（输入 → 真实回复 + 已合成音频），当前 9 条
 
 # ② 演练断网：故意不连模型，验证兜底链路是否真的能顶住
-$env:DEMO_FALLBACK="1"
-python -m uvicorn app:app --port 8000
+#    最省事的方式是直接双击 启动_离线保险.cmd
 ```
 
 **降级顺序**（每层都比上层差，但都不会中断）：
@@ -149,14 +185,42 @@ python -m uvicorn app:app --port 8000
 `/api/health` 会报告兜底状态，便于现场确认：
 
 ```json
-{"llm": true, "demo_cache": true, "demo_cache_entries": 4, "offline_mode": false}
+{"llm": true, "demo_cache": true, "demo_cache_entries": 9, "offline_mode": false,
+ "tts_last_backend": "edge", "tts_last_error": ""}
 ```
+
+`tts_last_backend` 是上一次成功用的后端：`edge`（在线，音色好）/ `sapi`（离线兜底，音色差）/
+`cache`（复用已生成的音频）；`tts_last_error` 是**上一次没出声的中文原因**，成功时为空。
+**"为什么这次没声音"直接看这两项就行**，详见 `docs/疑难排查.md` 第 16 节。
 
 > 匹配做了归一化：全角/半角标点、空格、首尾句号都不影响命中 ——
 > 因为**语音识别的输出自带句号**，不处理就会匹配不上（实测踩过）。
+> 另外还做了**相似度兜底**：实测识别把「明天要**交**的东西」听成「**教**」，
+> 只差一个字就会全部落空，所以精确匹配不中时按相似度（≥0.75）再试一次。
+>
+> 预演如果某句语音没合成成功，会**沿用上一次那一对「回复 + 音频」**（成对沿用，
+> 不会出现声文不符）—— 不会因为一晚网络差就把这张保命表清空。
 >
 > ⚠️ 兜底缓存只对"演示台词里出现的那几句"有效。演示时**照脚本说话**，
-> 临时改词会掉到固定模板。
+> 临时改词会掉到固定模板；同一句重复说也会得到同一条预置回复（这是兜底模式的固有特性）。
+
+---
+
+## 页面调试参数（测界面 / 录演示用）
+
+在地址后面加参数就能直接定到某个状态，不用真的发消息：
+
+| 参数 | 作用 |
+|---|---|
+| `?mode=call` / `?mode=text` | 直接进通话视图 / 文字视图 |
+| `?theme=cyber` | 直接切主题（`sweet` `cream` `cyber` `nature` `night`） |
+| `?expr=sad` | 固定某个表情（`neutral/happy/sad/anxious/angry/surprised/empathic`） |
+| `?cycle=1` | 每 0.9 秒自动换一张表情，确认换图真的生效 |
+| `?state=speaking` | 固定在"说话中"（看光晕和波形） |
+| `?voice=0.6` | 把音量固定成 0.6（检查"随声音推近"的视觉效果，不依赖真实音频） |
+| `?voiceauto=1` | 音量自动起伏 —— **这台机器没声音时也能看到动效对不对** |
+
+可以叠加，例如 `http://127.0.0.1:8000/?theme=cream&voiceauto=1`。
 
 ---
 
@@ -195,12 +259,16 @@ Get-Content logs\chat.jsonl | ForEach-Object {
 
 | 现象 | 原因 | 对策 |
 |---|---|---|
-| 语音偶尔没有 | edge-tts 连微软服务器，国内约 1/5 失败 | 已自动重试并兜底到 Windows SAPI；**演示前跑 `prewarm_demo`** |
+| 语音偶尔没有 | edge-tts 连微软服务器，国内有一定失败率（实测 6 句挂 1 句，下一句又正常） | 已自动重试 3 次并兜底到 Windows SAPI；**查原因看 `/api/health` 的 `tts_last_error`**；演示前跑 `prewarm_demo` |
+| 一直没声音，从来好过 | 本机没有可用的中文语音包 | 装中文语音包，或演示直接用模式 B（预置音频，不碰网络） |
+| 同一句话连说两遍，回复一模一样 | 温度 0.3 + 无防重复约束（**已修**） | 现在会检测重复输入并换说法，`response.debug` 里有 `repeat_input` / `repeat_fixed` 可查 |
 | 首次对话很慢（约 10 秒） | LLM + TTS 冷启动 | 服务启动时会自动预热，等 15 秒再用 |
-| 改完代码没变化 | 服务没重启 | 关掉窗口重新双击 `run.cmd` |
+| 改完前端没变化 | 浏览器用了缓存的旧页面 | **Ctrl + F5 硬刷新** |
+| 改完后端没变化 | 服务没重启 | 关掉窗口重新双击 `run.cmd` |
 | 队友机器装不上 faster-whisper | Python 版本不一致（3.14 无轮子） | **演示统一跑在 B 的机器上**（Python 3.10） |
 | 访问 `/` 看到提示页 | 前端页面文件缺失 | 正常兜底，页面存在后自动生效 |
 | 提交报 `Author identity unknown` | 没设 git 身份 | 见 `docs/疑难排查.md` 第 3 节 |
+| 说话时口型不动 | `assets/images/` 里没有 `expr_*_talk.webp`（张嘴图） | A 出 1 张就自动生效，前端不用改 |
 
 ---
 
