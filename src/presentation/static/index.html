@@ -1324,6 +1324,37 @@
     80% { transform: rotate(-2deg); }
   }
 
+  /* 摸头：点下去时头被按住、整个身体被压扁下沉，松手后弹起略微超过原高度再回稳。
+     transform-origin 在底部，所以"缩"是从头往下压，而不是整体缩放。 */
+  .pet-body.act-pat { animation: petPat 780ms cubic-bezier(.22,.9,.3,1); }
+  @keyframes petPat {
+    0%   { transform: scale(1, 1) translateY(0); }
+    14%  { transform: scale(1.10, .80) translateY(18px); }
+    32%  { transform: scale(.94, 1.09) translateY(-11px); }
+    50%  { transform: scale(1.04, .97) translateY(3px); }
+    68%  { transform: scale(.99, 1.02) translateY(-3px); }
+    84%  { transform: scale(1.01, .995) translateY(1px); }
+    100% { transform: scale(1, 1) translateY(0); }
+  }
+  /* 摸头时头顶冒一个小爱心 */
+  .pet-heart {
+    position: absolute;
+    top: 4%;
+    left: 50%;
+    transform: translate(-50%, 0) scale(.6);
+    font-size: 26px;
+    color: #ff6b8a;
+    opacity: 0;
+    pointer-events: none;
+    text-shadow: 0 2px 6px rgba(255, 107, 138, .45);
+  }
+  .pet-heart.on { animation: petHeart 880ms ease-out; }
+  @keyframes petHeart {
+    0%   { opacity: 0; transform: translate(-50%, 6px) scale(.5); }
+    25%  { opacity: 1; transform: translate(-50%, -6px) scale(1.15); }
+    100% { opacity: 0; transform: translate(-50%, -46px) scale(.9); }
+  }
+
   /* ---- 思考气泡（照参考图：白底 + 深蓝描边 + 三点尾巴）---- */
   .pet-bubble {
     position: absolute;
@@ -1572,6 +1603,7 @@
   <div class="pet-bubble" id="pet-bubble"><span id="pet-bubble-text"></span><i class="t1"></i><i class="t2"></i><i class="t3"></i></div>
   <div class="pet-body" id="pet-body" title="点我一下">
     <img id="pet-img" alt="" draggable="false">
+    <span class="pet-heart" id="pet-heart">♥</span>
   </div>
   <button class="pet-close" id="pet-close" type="button" title="收起小人">×</button>
 </div>
@@ -2579,6 +2611,8 @@
       surprised: "/pet/q_surprised.webp",
       blink: "/pet/q_blink.webp",
       talk: "/pet/q_talk.webp",
+      happy_talk: "/pet/q_happy_talk.webp",
+      sad_talk: "/pet/q_sad_talk.webp",
     };
     var ready = {};
     Object.keys(ASSETS).forEach(function (k) {
@@ -2623,6 +2657,21 @@
       clearTimeout(bubbleTimer);
       bubbleTimer = setTimeout(function () { bubble.classList.remove("on"); },
         holdMs || (1200 + text.length * 80));
+    }
+
+    // 摸头：按下去时整个身体被压扁下沉，松手回弹并轻微超出，再稳住
+    function pat() {
+      clearActs();
+      void body.offsetWidth;
+      body.classList.add("act-pat");
+      var heart = $("pet-heart");
+      if (heart) {
+        heart.classList.remove("on");
+        void heart.offsetWidth;
+        heart.classList.add("on");
+      }
+      setTimeout(function () { body.classList.remove("act-pat"); }, 820);
+      setTimeout(function () { if (heart) { heart.classList.remove("on"); } }, 900);
     }
 
     function bounce() {
@@ -2685,7 +2734,8 @@
       var open = false;
       talkTimer = setInterval(function () {
         open = !open;
-        img.src = open ? ASSETS.talk : (ASSETS[mood] || ASSETS.calm);
+        var openSrc = ASSETS[mood + "_talk"] || ASSETS.talk;
+        img.src = open ? openSrc : (ASSETS[mood] || ASSETS.calm);
       }, 115);
     }
     function stopTalk() {
@@ -2721,6 +2771,7 @@
       startTalk: startTalk,
       stopTalk: stopTalk,
       act: doAct,
+      pat: pat,
       setMood: function (expr) {
         var m = MOOD_MAP[expr] || "calm";
         if (m === mood) { return; }
