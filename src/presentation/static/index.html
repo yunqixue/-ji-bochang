@@ -1086,6 +1086,11 @@
   }
   .welcome .w-tips button:hover { opacity: 1; transform: translateY(-1px); }
   .welcome .w-tips button:disabled { cursor: default; opacity: .3; }
+
+  /* 目光跟随：立绘朝鼠标方向轻微平移，像在看着对方 */
+  .stage { --gx: 0; --gy: 0; }
+  .avatar-img { transition: opacity 200ms ease-in-out, transform .5s ease-out; }
+  .stage:hover .avatar-img { transform: translate(calc(var(--gx) * 5px), calc(var(--gy) * 4px)); }
 </style>
 </head>
 <body>
@@ -1475,7 +1480,7 @@
         layer.ok = true;
         layer.fallback.style.visibility = "hidden";
         // 背景虚化层跟着换同一张图（用静态图，不用张嘴图，免得背景闪）
-        if (layer.bg && layer.bg.getAttribute("src") !== base) {
+        if (layer.bg && !sceneLocked && layer.bg.getAttribute("src") !== base) {
           layer.bg.src = base;
         }
         // 换表情时闪一下柔光：让观众感觉是"她表情变了"，而不是图片被替换
@@ -2077,10 +2082,41 @@
   }
 
   // ---------------- 启动 ----------------
+  // 目光跟随：鼠标在舞台里移动，立绘朝鼠标方向轻移，像在看着你
+  function bindGaze() {
+    [stageEl, stageEl2].forEach(function (stage) {
+      if (!stage) { return; }
+      stage.addEventListener("pointermove", function (e) {
+        var r = stage.getBoundingClientRect();
+        stage.style.setProperty("--gx", (((e.clientX - r.left) / r.width) - 0.5).toFixed(3));
+        stage.style.setProperty("--gy", (((e.clientY - r.top) / r.height) - 0.5).toFixed(3));
+      });
+      stage.addEventListener("pointerleave", function () {
+        stage.style.setProperty("--gx", "0");
+        stage.style.setProperty("--gy", "0");
+      });
+    });
+  }
+
+  // 背景场景：A 把背景图放 assets/images/bg_<名字>.webp，用 ?bg=<名字> 切换
+  // 没有对应图时自动回落到「当前表情虚化」当背景，不会白屏
+  var sceneLocked = false;
+  function applyScene(name) {
+    var url = "/avatar/bg_" + name + ".webp";
+    var probe = new Image();
+    probe.onload = function () {
+      sceneLocked = true;
+      ["call", "chat"].forEach(function (k) { if (layers[k].bg) { layers[k].bg.src = url; } });
+    };
+    probe.onerror = function () { sceneLocked = false; };
+    probe.src = url;
+  }
+
   function init() {
     ensureSession();
     setTheme(initialTheme(), false);
     bind();
+    bindGaze();
     setView(initialView());
     setStageState("idle");
     setExpression("neutral");
@@ -2113,6 +2149,8 @@
         idx += 1;
       }, 900);
     }
+    var bgScene = (location.search.match(/[?&]bg=([a-z0-9_-]+)/) || [])[1];
+    if (bgScene) { applyScene(bgScene); }
 
     setMeters(0, 0.4);
     addRow("them", "我在呢。今天过得怎么样？", "");
