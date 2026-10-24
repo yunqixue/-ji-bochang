@@ -826,13 +826,13 @@
   }
   html[data-theme="night"] body {
     background:
-      radial-gradient(900px 520px at 12% -10%, rgba(140, 90, 255, .18), transparent 62%),
-      radial-gradient(820px 480px at 92% 2%, rgba(255, 170, 80, .10), transparent 58%),
-      linear-gradient(180deg, #120c1f 0%, #0b0713 58%, #0e0a18 100%);
+      radial-gradient(900px 520px at 12% -10%, rgba(150, 110, 255, .26), transparent 62%),
+      radial-gradient(820px 480px at 92% 2%, rgba(255, 185, 110, .16), transparent 58%),
+      linear-gradient(180deg, #241d3a 0%, #1b1530 58%, #201a36 100%);
   }
   html[data-theme="night"] .stage {
-    background: radial-gradient(120% 100% at 50% 8%, #1a1230 0%, #120c22 46%, #0a0714 100%);
-    border-color: rgba(180, 140, 255, .2);
+    background: radial-gradient(120% 100% at 50% 8%, #2e2450 0%, #241c40 46%, #1a1432 100%);
+    border-color: rgba(180, 140, 255, .28);
   }
   html[data-theme="night"] .avatar-fallback {
     background: radial-gradient(circle at 50% 34%, #241a3c 0%, #1a1229 66%, #100b1c 100%);
@@ -929,6 +929,8 @@
     opacity: .82;
     filter: blur(18px) saturate(1.35) brightness(.9);
     transform: scale(1.08);
+    /* 切主题时不跳变：模糊/亮度平滑过渡，避免"背景被拉远"的错觉 */
+    transition: filter 420ms ease, opacity 420ms ease;
   }
   .stage-bg img {
     width: 100%;
@@ -936,6 +938,13 @@
     object-fit: cover;
     object-position: 50% 20%;
     display: block;
+    /* 动态背景：极慢的推近 + 轻微漂移，像镜头在呼吸 */
+    animation: bgKenBurns 42s ease-in-out infinite alternate;
+    will-change: transform;
+  }
+  @keyframes bgKenBurns {
+    from { transform: scale(1) translate3d(0, 0, 0); }
+    to   { transform: scale(1.09) translate3d(-1.6%, -1.2%, 0); }
   }
   /* 边缘压暗，把视线收回到中间的人身上（只作用在背景上，不盖脸） */
   .stage-tint {
@@ -945,35 +954,12 @@
     pointer-events: none;
     background: radial-gradient(115% 80% at 50% 42%, transparent 52%, rgba(0, 0, 0, .34) 100%);
   }
-  html[data-theme="sweet"] .stage-bg,
-  html[data-theme="cream"] .stage-bg,
-  html[data-theme="nature"] .stage-bg { opacity: .62; filter: blur(20px) saturate(1.2) brightness(1.02); }
-  html[data-theme="sweet"] .stage-tint,
-  html[data-theme="cream"] .stage-tint,
-  html[data-theme="nature"] .stage-tint {
-    background: radial-gradient(115% 80% at 50% 42%, transparent 56%, rgba(84, 52, 30, .18) 100%);
-  }
-  html[data-theme="cyber"] .stage-bg,
-  html[data-theme="night"] .stage-bg { opacity: .8; filter: blur(24px) saturate(1.15) brightness(.6); }
-  /* 深色主题下再补两团霓虹氛围光，左右各一团，慢慢呼吸 —— 空的地方不再是一块死黑 */
-  html[data-theme="cyber"] .stage-tint::before,
-  html[data-theme="night"] .stage-tint::before {
-    content: "";
-    position: absolute;
-    inset: -10%;
-    background:
-      radial-gradient(38% 52% at 12% 32%, rgba(0, 229, 255, .13), transparent 70%),
-      radial-gradient(36% 50% at 88% 62%, rgba(255, 0, 128, .10), transparent 70%);
-    animation: ambientDrift 11s ease-in-out infinite alternate;
-  }
-  html[data-theme="night"] .stage-tint::before {
-    background:
-      radial-gradient(38% 52% at 12% 32%, rgba(150, 110, 255, .24), transparent 70%),
-      radial-gradient(36% 50% at 88% 62%, rgba(255, 120, 190, .16), transparent 70%);
-  }
-  @keyframes ambientDrift {
-    0%   { transform: translate3d(0, 0, 0) scale(1); opacity: .85; }
-    100% { transform: translate3d(2.5%, -2%, 0) scale(1.08); opacity: 1; }
+  /* ★ 背景（舞台虚化层 + 边缘压暗）不随主题变化：主题只管 UI 配色，背景属于内容。
+     原来每个主题给了不同的 brightness/saturate，深色主题还额外叠了霓虹光，
+     一切换光感背景就跟着变 —— 看起来像"换了张背景"。现在统一成一套参数。 */
+  .stage-bg { opacity: .78; filter: blur(20px) saturate(1.18) brightness(.95); }
+  .stage-tint {
+    background: radial-gradient(115% 80% at 50% 42%, transparent 54%, rgba(0, 0, 0, .26) 100%);
   }
   /* 背景下方压暗，让画面自然过渡到字幕区，不要一刀切 */
   .stage-tint::after {
@@ -983,12 +969,7 @@
     right: 0;
     bottom: 0;
     height: 34%;
-    background: linear-gradient(to top, rgba(0, 0, 0, .42), transparent);
-  }
-  html[data-theme="sweet"] .stage-tint::after,
-  html[data-theme="cream"] .stage-tint::after,
-  html[data-theme="nature"] .stage-tint::after {
-    background: linear-gradient(to top, rgba(120, 82, 54, .2), transparent);
+    background: linear-gradient(to top, rgba(0, 0, 0, .34), transparent);
   }
 
   /* --- ② 形象动效：一条 transform 同时管两件事 ---
@@ -1126,23 +1107,18 @@
   html[data-scene="1"] body::before {      /* 盖掉赛博主题的网格线，场景上不要再叠网格 */
     opacity: .18;
   }
+  /* 场景图上的统一压暗：所有主题用同一套，切光感时背景不再跟着明暗跳。
+     配套：场景模式下文字统一转浅色（见文件末尾），靠文字阴影保证可读，
+     而不是靠压暗整页。 */
   html[data-scene="1"] body::after {
     content: "";
     position: fixed;
     inset: 0;
     z-index: 0;
     pointer-events: none;
-    /* 浅色主题下用很淡的暖白压边，避免"整页发暗"；深色主题见下面的覆盖 */
     background:
-      linear-gradient(to bottom, rgba(255, 252, 246, .26) 0%, rgba(255, 252, 246, .04) 24%,
-                      rgba(255, 252, 246, .04) 60%, rgba(255, 252, 246, .40) 100%);
-  }
-  /* 深色主题（科技感 / 暗夜紫）保留压暗，否则白字在亮背景上看不清 */
-  html[data-theme="cyber"][data-scene="1"] body::after,
-  html[data-theme="night"][data-scene="1"] body::after {
-    background:
-      linear-gradient(to bottom, rgba(4, 8, 14, .82) 0%, rgba(4, 8, 14, .26) 22%,
-                      rgba(4, 8, 14, .16) 55%, rgba(4, 8, 14, .86) 100%);
+      linear-gradient(to bottom, rgba(10, 8, 16, .34) 0%, rgba(10, 8, 16, .06) 22%,
+                      rgba(10, 8, 16, .05) 58%, rgba(10, 8, 16, .38) 100%);
   }
   /* ★ 这里的 !important 是必需的：各主题都有自己的 `html[data-theme="x"] .stage { background: … }`，
      选择器权重和 `html[data-scene="1"] .stage` 一样，谁写在后面谁赢。C 后来新增的 light/ease 主题
@@ -1412,6 +1388,54 @@
     .pet-layer { width: 108px; right: 8px; bottom: 82px; }
     .pet-bubble { max-width: 180px; font-size: 12px; padding: 9px 13px; border-width: 2px; }
     .pet-bubble i { border-width: 2px; }
+  }
+
+  /* ============ 动态背景：整页场景模式下的缓慢漂移 ============ */
+  @keyframes sceneDrift {
+    0%   { background-position: 50% 42%; }
+    50%  { background-position: 54.5% 46%; }
+    100% { background-position: 50% 42%; }
+  }
+  html[data-scene="1"] body {
+    animation: sceneDrift 48s ease-in-out infinite;
+  }
+  /* 关掉动效偏好时不动 */
+  @media (prefers-reduced-motion: reduce) {
+    .stage-bg img { animation: none; }
+    html[data-scene="1"] body { animation: none; }
+  }
+
+  /* 场景模式：文字统一转浅色 + 阴影 —— 这样不靠压暗整页也能读清，
+     而且切光感时背景的明暗不再跳。 */
+  html[data-scene="1"] .call-name,
+  html[data-scene="1"] .call-status,
+  html[data-scene="1"] .call-timer,
+  html[data-scene="1"] .brand h1,
+  html[data-scene="1"] .brand .sub,
+  html[data-scene="1"] .subtitle span,
+  html[data-scene="1"] .hint {
+    color: #f8f6f2;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, .62);
+  }
+  html[data-scene="1"] .chip {
+    color: #f8f6f2;
+    border-color: rgba(255, 255, 255, .34);
+    background: rgba(22, 18, 28, .42);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, .5);
+  }
+
+  /* （已撤掉「说话时插入视频片段」：硬切真人视频与 2D 立绘风格割裂，观感诡异。
+     现在说话态仍由「伪口型」承担：有 expr_<表情>_talk.webp 就换张嘴图，没有就静态图。） */
+
+  /* ★ 放在所有主题之后：场景模式的铺法必须固定。
+     各主题的 `background: …` 简写会把 size/repeat/attachment 一并重置成默认值，
+     导致场景图从「铺满」退回「原始大小、平铺」——看起来就是背景位置/画面变了。
+     这里在最后统一钉住（动画仍会接管 position 做缓慢漂移）。 */
+  html[data-scene="1"] body {
+    background-size: cover;
+    background-position: 50% 42%;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
   }
 </style>
 </head>
@@ -1927,7 +1951,8 @@
     var wasSpeaking = speaking;
     speaking = (state === "speaking");
     [stageEl, stageEl2].forEach(function (el) {
-      if (el) { el.setAttribute("data-state", state); }
+      if (!el) { return; }
+      el.setAttribute("data-state", state);
     });
     badgeState.textContent = STATE_CN[state] || state;
     var waveEl = $("voice-wave");
