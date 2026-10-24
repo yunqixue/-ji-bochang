@@ -17,6 +17,7 @@ import os
 import random
 import re
 import time
+import urllib.request
 from typing import Any, Dict, List, Optional, Tuple
 
 from src.shared.contracts import (
@@ -311,6 +312,44 @@ def _load_api_key() -> str:
     return ""
 
 
+def _web_search(query: str, count: int = 3) -> str:
+    """调 DeepSeek 网页搜索（POST /v1/tools/search），返回给模型读的一段摘要文本。
+
+    只在 WEB_SEARCH=1 时调用；失败抛异常，由调用方兜住（搜索失败不该打断聊天）。
+    """
+    key = _load_api_key()
+    if not key:
+        return ""
+    base = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com").rstrip("/")
+    url = base + "/v1/tools/search"
+    payload = json.dumps({
+        "query": (query or "")[:128],
+        "ori_question": (query or "")[:128],
+        "count": count,
+        "need_content": False,
+    }).encode("utf-8")
+    req = urllib.request.Request(
+        url, data=payload,
+        headers={"Content-Type": "application/json", "Authorization": "Bearer " + key},
+    )
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    results = data.get("results") or []
+    blocks = []
+    for r in results[:count]:
+        title = (r.get("title") or "").strip()
+        summary = (r.get("summary") or r.get("snippet") or "").strip()
+        if title and summary:
+            blocks.append(f"- {title}：{summary}")
+    if not blocks:
+        return ""
+    return (
+        "【下面是刚联网搜到的资料。请用你自己的、简单的话说给对方听，"
+        "不要只说「这个我不懂」；如果这些资料和当前聊天无关，就忽略它。】\n"
+        + "\n".join(blocks)
+    )
+
+
 def api_key_configured() -> bool:
     """给自检脚本/评测脚本用：Key 到底有没有（环境变量或 api_key.txt 都算）。"""
     return bool(_load_api_key())
@@ -577,10 +616,20 @@ def respond(
             print(f"[LLM] 同一句已连说 {repeat_streak + 1} 遍，本轮要求换方向")
         previous_replies = [t["assistant"] for t in (mem.get("turns") or [])][-3:]
 
+        # 联网搜索：WEB_SEARCH=1 时，每轮先搜一次、把结果喂给模型（失败不打断聊天）
+        web_context = ""
+        if os.getenv("WEB_SEARCH") == "1":
+            try:
+                web_context = _web_search(text)
+            except Exception as exc:                     # noqa: BLE001
+                print(f"[WEB] 搜索失败：{type(exc).__name__}: {exc}")
+
         def _ask(avoid: str) -> Dict[str, Any]:
             """问一次模型；网络/格式失败重试一次。avoid 非空时要求避开那句话。"""
             msgs = _build_messages(mem, text, repeat_input=repeat_input,
                                    repeat_streak=repeat_streak, avoid_reply=avoid)
+            if web_context:
+                msgs[0]["content"] += "\n\n" + web_context
             err = ""
             for attempt in range(2):
                 try:
