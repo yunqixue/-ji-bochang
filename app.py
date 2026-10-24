@@ -99,6 +99,10 @@ def health() -> dict:
         "demo_cache": demo["ready"],
         "demo_cache_entries": demo["entries"],
         "offline_mode": demo["offline_mode"],
+        # 「为什么这次没出语音」—— 最近一次合成的结果，空字符串表示没失败过。
+        # tts_last_backend：edge（在线，音色好）/ sapi（离线兜底，音色差）/ cache（复用已生成）
+        "tts_last_backend": tts.last_backend(),
+        "tts_last_error": tts.last_error(),
     }
 
 
