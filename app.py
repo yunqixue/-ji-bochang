@@ -83,7 +83,12 @@ def index():
 </body></html>""",
             status_code=200,
         )
-    return FileResponse(page)
+    # ★ 页面必须不缓存。
+    #   今天踩了三次同一个坑：改了网页，浏览器还用缓存里的旧页面，于是"改了没变化"、
+    #   "背景切不了"、"表情不动"——全都是旧的 HTML 在跑，白查半天。
+    #   这个页面只有一个 HTML 文件、内容全在里面，禁缓存没有任何副作用。
+    no_cache = {"Cache-Control": "no-store, must-revalidate", "Pragma": "no-cache"}
+    return FileResponse(page, headers=no_cache)
 
 
 @app.get("/api/health")
