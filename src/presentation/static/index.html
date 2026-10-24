@@ -1146,12 +1146,13 @@
       linear-gradient(to bottom, rgba(255, 252, 246, .26) 0%, rgba(255, 252, 246, .04) 24%,
                       rgba(255, 252, 246, .04) 60%, rgba(255, 252, 246, .40) 100%);
   }
-  /* 深色主题（科技感 / 暗夜紫）保留压暗，否则白字在亮背景上看不清 */
+  /* 深色主题（科技感 / 暗夜紫）在场景图上压一层很淡的暗，只为保证顶部按钮和字幕读得清；
+     原来压到 82%~86% 黑，等于把整页涂黑，背景等于白换 —— 现在只压边缘。 */
   html[data-theme="cyber"][data-scene="1"] body::after,
   html[data-theme="night"][data-scene="1"] body::after {
     background:
-      linear-gradient(to bottom, rgba(4, 8, 14, .82) 0%, rgba(4, 8, 14, .26) 22%,
-                      rgba(4, 8, 14, .16) 55%, rgba(4, 8, 14, .86) 100%);
+      linear-gradient(to bottom, rgba(12, 8, 22, .52) 0%, rgba(12, 8, 22, .10) 20%,
+                      rgba(12, 8, 22, .08) 58%, rgba(12, 8, 22, .55) 100%);
   }
   /* ★ 这里的 !important 是必需的：各主题都有自己的 `html[data-theme="x"] .stage { background: … }`，
      选择器权重和 `html[data-scene="1"] .stage` 一样，谁写在后面谁赢。C 后来新增的 light/ease 主题
