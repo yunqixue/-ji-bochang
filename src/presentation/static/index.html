@@ -1117,6 +1117,14 @@
       <option value="nature">自然风</option>
       <option value="night">暗夜紫</option>
     </select>
+    <select class="chip" id="bg-sel" title="换背景场景">
+      <option value="">背景·自动</option>
+      <option value="home">客厅</option>
+      <option value="cafe">咖啡馆</option>
+      <option value="park">公园</option>
+      <option value="night">夜晚</option>
+      <option value="study">书房</option>
+    </select>
     <button class="chip" id="btn-to-chat" type="button">文字</button>
     <button class="chip danger" id="btn-hangup" type="button">挂断</button>
   </header>
@@ -1181,6 +1189,14 @@
         <option value="cyber">科技感</option>
         <option value="nature">自然风</option>
         <option value="night">暗夜紫</option>
+      </select>
+      <select class="chip" id="bg-sel2" title="换背景场景">
+        <option value="">背景·自动</option>
+        <option value="home">客厅</option>
+        <option value="cafe">咖啡馆</option>
+        <option value="park">公园</option>
+        <option value="night">夜晚</option>
+        <option value="study">书房</option>
       </select>
       <button class="chip" id="btn-to-call" type="button">回到通话</button>
       <button class="chip" id="btn-reset" type="button">重开一轮</button>
@@ -2060,6 +2076,10 @@
       var s = $(id);
       if (s) { s.addEventListener("change", function () { setTheme(s.value); }); }
     });
+    ["bg-sel", "bg-sel2"].forEach(function (id) {
+      var s = $(id);
+      if (s) { s.addEventListener("change", function () { if (s.value) { applyScene(s.value); } else { clearScene(); } }); }
+    });
     $("btn-to-chat").addEventListener("click", function () { setView("chat"); });
     $("btn-to-call").addEventListener("click", function () { setView("call"); });
     $("btn-reset").addEventListener("click", resetSession);
@@ -2113,9 +2133,20 @@
     probe.onload = function () {
       sceneLocked = true;
       ["call", "chat"].forEach(function (k) { if (layers[k].bg) { layers[k].bg.src = url; } });
+      ["bg-sel", "bg-sel2"].forEach(function (id) { var s = $(id); if (s) { s.value = name; } });
     };
     probe.onerror = function () { sceneLocked = false; };
     probe.src = url;
+  }
+
+  // 背景回到「自动」：跟着当前表情虚化走
+  function clearScene() {
+    sceneLocked = false;
+    ["call", "chat"].forEach(function (k) {
+      var l = layers[k];
+      if (l.bg && l.expr) { l.bg.src = "/avatar/expr_" + l.expr + ".webp"; }
+    });
+    ["bg-sel", "bg-sel2"].forEach(function (id) { var s = $(id); if (s) { s.value = ""; } });
   }
 
   function init() {
