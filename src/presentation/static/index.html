@@ -1275,6 +1275,17 @@
   .stage[data-talking="1"] .talk-video { opacity: 1; }
   /* 3D 模型就绪时让位给 3D（3D 有真逐字口型） */
   .stage[data-avatar3d="1"] .talk-video { display: none; }
+
+  /* ★ 放在所有主题之后：场景模式的铺法必须固定。
+     各主题的 `background: …` 简写会把 size/repeat/attachment 一并重置成默认值，
+     导致场景图从「铺满」退回「原始大小、平铺」——看起来就是背景位置/画面变了。
+     这里在最后统一钉住（动画仍会接管 position 做缓慢漂移）。 */
+  html[data-scene="1"] body {
+    background-size: cover;
+    background-position: 50% 42%;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+  }
 </style>
 </head>
 <body>
