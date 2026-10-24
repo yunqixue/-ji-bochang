@@ -89,3 +89,6 @@ logs/
 # 本地工具（ffmpeg 81MB，不进仓库）
 experiments/imgtool/bin/
 
+
+# 口型同步的逐词时间戳（TTS 每次生成都会产出，属运行产物）
+src/presentation/static/tts/*.words.json
