@@ -312,10 +312,42 @@ def _load_api_key() -> str:
     return ""
 
 
+def should_web_search(text: str) -> bool:
+    """这一句值不值得联网搜？——**保守判断，宁可不搜**。
+
+    为什么需要这个闸门（实测）：搜索一次 0.5~0.6 秒，原文返回 2000~5000 字，
+    全塞进 system 里又贵又干扰；而这是情感陪伴场景，绝大多数话是倾诉
+    （"我今天面试没过"），搜了纯属噪音。所以只在"看起来在问一件事实"时才搜。
+
+    两个条件同时满足才搜：
+      1. 出现明确的事实类问法（是什么/在哪/多少钱/天气/新闻/最新…）
+      2. 没有任何情绪/危机信号（难过/累/吵架/不想活…）
+         —— "为什么我总是这样"这种带"为什么"的情绪话，搜出来全是鸡汤，反而更糟。
+    """
+    t = (text or "").strip()
+    if len(t) < 4:
+        return False
+    info_markers = (
+        "是什么", "什么是", "啥是", "怎么用", "怎么弄", "怎么去", "在哪", "哪里买",
+        "多少钱", "几点", "几号", "哪个", "什么时候", "多少",
+        "天气", "气温", "新闻", "最新", "比分", "赛程", "汇率", "股价", "价格",
+        "上映", "路线", "几路", "高铁", "航班",
+    )
+    distress_markers = (
+        "难过", "难受", "累", "烦", "哭", "焦虑", "睡不着", "失眠", "没用", "废物",
+        "分手", "吵架", "骂", "崩溃", "孤独", "害怕", "想死", "不想活", "没意思",
+        "压力", "委屈", "后悔", "自责", "失恋", "失业", "没过", "失败",
+    )
+    if any(k in t for k in distress_markers):
+        return False
+    return any(k in t for k in info_markers)
+
+
 def _web_search(query: str, count: int = 3) -> str:
     """调 DeepSeek 网页搜索（POST /v1/tools/search），返回给模型读的一段摘要文本。
 
-    只在 WEB_SEARCH=1 时调用；失败抛异常，由调用方兜住（搜索失败不该打断聊天）。
+    只在 WEB_SEARCH=1 且 should_web_search() 为真时调用；
+    失败抛异常，由调用方兜住（搜索失败不该打断聊天）。
     """
     key = _load_api_key()
     if not key:
@@ -332,21 +364,26 @@ def _web_search(query: str, count: int = 3) -> str:
         url, data=payload,
         headers={"Content-Type": "application/json", "Authorization": "Bearer " + key},
     )
-    with urllib.request.urlopen(req, timeout=15) as resp:
+    with urllib.request.urlopen(req, timeout=8) as resp:
         data = json.loads(resp.read().decode("utf-8"))
     results = data.get("results") or []
     blocks = []
     for r in results[:count]:
-        title = (r.get("title") or "").strip()
-        summary = (r.get("summary") or r.get("snippet") or "").strip()
-        if title and summary:
-            blocks.append(f"- {title}：{summary}")
+        title = (r.get("title") or "").strip().replace("\n", " ")
+        summary = (r.get("summary") or r.get("snippet") or "").strip().replace("\n", " ")
+        if not summary:
+            continue
+        # 截断：原文一条就能上千字，全塞进去既贵又会把模型带成"念新闻"
+        blocks.append("- " + (title + "：" if title else "") + summary[:120])
     if not blocks:
         return ""
+    body = "\n".join(blocks)[:700]
     return (
-        "【下面是刚联网搜到的资料。请用你自己的、简单的话说给对方听，"
-        "不要只说「这个我不懂」；如果这些资料和当前聊天无关，就忽略它。】\n"
-        + "\n".join(blocks)
+        "【刚联网查到的资料，只是给你参考，别照念】\n"
+        + body
+        + "\n说的时候记住：用你自己的话、小孩的语气，一两句说完；"
+        "不要念标题、不要说来源、不要提「我刚查了资料」；"
+        "如果它跟现在聊的事无关，就当没看见。"
     )
 
 
@@ -616,13 +653,16 @@ def respond(
             print(f"[LLM] 同一句已连说 {repeat_streak + 1} 遍，本轮要求换方向")
         previous_replies = [t["assistant"] for t in (mem.get("turns") or [])][-3:]
 
-        # 联网搜索：WEB_SEARCH=1 时，每轮先搜一次、把结果喂给模型（失败不打断聊天）
+        # 联网搜索：WEB_SEARCH=1 时，**只在看起来在问事实**的那几轮才搜（见 should_web_search）。
+        # 失败只打日志，绝不打断聊天。
         web_context = ""
-        if os.getenv("WEB_SEARCH") == "1":
+        if os.getenv("WEB_SEARCH") == "1" and should_web_search(text):
             try:
                 web_context = _web_search(text)
+                if web_context:
+                    print(f"[WEB] 已检索：{text[:20]}")
             except Exception as exc:                     # noqa: BLE001
-                print(f"[WEB] 搜索失败：{type(exc).__name__}: {exc}")
+                print(f"[WEB] 搜索失败（已忽略）：{type(exc).__name__}: {exc}")
 
         def _ask(avoid: str) -> Dict[str, Any]:
             """问一次模型；网络/格式失败重试一次。avoid 非空时要求避开那句话。"""
