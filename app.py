@@ -167,7 +167,7 @@ def chat(
             "avatar": avatar,
             # 逐词时间戳（edge-tts WordBoundary），前端 3D 口型同步用；
             # 离线兜底/老缓存没有它时是 None，前端退回音量驱动口型
-            "lipsync": tts.timings_for(audio_url),
+            "lipsync": tts.timings_for(audio_url, response.reply_text),
             "latency_ms": int((time.time() - started) * 1000),
         }
 
