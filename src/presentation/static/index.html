@@ -826,13 +826,13 @@
   }
   html[data-theme="night"] body {
     background:
-      radial-gradient(900px 520px at 12% -10%, rgba(140, 90, 255, .18), transparent 62%),
-      radial-gradient(820px 480px at 92% 2%, rgba(255, 170, 80, .10), transparent 58%),
-      linear-gradient(180deg, #120c1f 0%, #0b0713 58%, #0e0a18 100%);
+      radial-gradient(900px 520px at 12% -10%, rgba(150, 110, 255, .26), transparent 62%),
+      radial-gradient(820px 480px at 92% 2%, rgba(255, 185, 110, .16), transparent 58%),
+      linear-gradient(180deg, #241d3a 0%, #1b1530 58%, #201a36 100%);
   }
   html[data-theme="night"] .stage {
-    background: radial-gradient(120% 100% at 50% 8%, #1a1230 0%, #120c22 46%, #0a0714 100%);
-    border-color: rgba(180, 140, 255, .2);
+    background: radial-gradient(120% 100% at 50% 8%, #2e2450 0%, #241c40 46%, #1a1432 100%);
+    border-color: rgba(180, 140, 255, .28);
   }
   html[data-theme="night"] .avatar-fallback {
     background: radial-gradient(circle at 50% 34%, #241a3c 0%, #1a1229 66%, #100b1c 100%);
@@ -929,6 +929,8 @@
     opacity: .82;
     filter: blur(18px) saturate(1.35) brightness(.9);
     transform: scale(1.08);
+    /* 切主题时不跳变：模糊/亮度平滑过渡，避免"背景被拉远"的错觉 */
+    transition: filter 420ms ease, opacity 420ms ease;
   }
   .stage-bg img {
     width: 100%;
@@ -936,6 +938,13 @@
     object-fit: cover;
     object-position: 50% 20%;
     display: block;
+    /* 动态背景：极慢的推近 + 轻微漂移，像镜头在呼吸 */
+    animation: bgKenBurns 42s ease-in-out infinite alternate;
+    will-change: transform;
+  }
+  @keyframes bgKenBurns {
+    from { transform: scale(1) translate3d(0, 0, 0); }
+    to   { transform: scale(1.09) translate3d(-1.6%, -1.2%, 0); }
   }
   /* 边缘压暗，把视线收回到中间的人身上（只作用在背景上，不盖脸） */
   .stage-tint {
@@ -954,7 +963,7 @@
     background: radial-gradient(115% 80% at 50% 42%, transparent 56%, rgba(84, 52, 30, .18) 100%);
   }
   html[data-theme="cyber"] .stage-bg,
-  html[data-theme="night"] .stage-bg { opacity: .8; filter: blur(24px) saturate(1.15) brightness(.6); }
+  html[data-theme="night"] .stage-bg { opacity: .8; filter: blur(20px) saturate(1.15) brightness(.82); }
   /* 深色主题下再补两团霓虹氛围光，左右各一团，慢慢呼吸 —— 空的地方不再是一块死黑 */
   html[data-theme="cyber"] .stage-tint::before,
   html[data-theme="night"] .stage-tint::before {
@@ -1248,6 +1257,21 @@
   html[data-theme="ease"] .bubble { background: #fbf6ec; border-color: rgba(150, 128, 96, .2); }
   html[data-theme="ease"] input { background: #fbf7ee; }
   html[data-theme="ease"] .subtitle span { color: #4a4237; }
+
+  /* ============ 动态背景：整页场景模式下的缓慢漂移 ============ */
+  @keyframes sceneDrift {
+    0%   { background-position: 50% 42%; }
+    50%  { background-position: 54.5% 46%; }
+    100% { background-position: 50% 42%; }
+  }
+  html[data-scene="1"] body {
+    animation: sceneDrift 48s ease-in-out infinite;
+  }
+  /* 关掉动效偏好时不动 */
+  @media (prefers-reduced-motion: reduce) {
+    .stage-bg img { animation: none; }
+    html[data-scene="1"] body { animation: none; }
+  }
 </style>
 </head>
 <body>
