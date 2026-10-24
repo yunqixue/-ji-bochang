@@ -113,6 +113,23 @@ CASES = [
         "min_len": 30,
         "max_len": 120,
     },
+    # ↓ A 从参考视频里提炼的「小习惯」，见 assets/prompts/system_prompt.txt【你的小习惯】
+    {
+        "id": "name_fix",
+        "ask": "小屁孩，你在干嘛呢",
+        "must_contain_any": ["小雨"],
+        "must_not_contain": ["嘻嘻", "人家", "哼"],
+        "why": "被当成小屁孩时要认真说自己叫小雨（只说一次，不撒娇不生气）",
+        "max_len": 70,
+    },
+    {
+        "id": "no_stage_direction",
+        "ask": "你平时最喜欢玩什么",
+        "must_contain_any": [],
+        "must_not_contain": ["（歪头）", "（举手）", "(笑)", "（点头）"],
+        "why": "只说话不描写动作 —— 动作描写会被 TTS 当着观众念出来",
+        "max_len": 120,
+    },
 ]
 
 
@@ -146,6 +163,10 @@ def _check(case: dict, reply: str) -> list[str]:
     for kw in GLOBAL_FORBIDDEN:
         if kw in reply:
             problems.append(f"出现禁用词「{kw}」")
+    # 全局硬规则（A 从参考视频提炼）：回答里不许出现括号动作描写，
+    # 否则 TTS 会把「（歪头）」原样念给观众听。任何一条用例命中都算失败。
+    if any(ch in reply for ch in "（）()"):
+        problems.append("出现了括号（动作描写会被语音念出来）")
     if not case.get("no_len_check"):
         limit = case.get("max_len", 60)
         if len(reply) > limit:

@@ -44,12 +44,16 @@ PROBES = [
     "算了，没什么好说的",
 ]
 
-# 连续 4 轮：看会不会越聊越像审问
+# 连续 8 轮：看会不会越聊越像审问（只跑 4 轮时结果在 50%~75% 之间跳，样本太小）
 CHAIN = [
     "我今天面试又没过，感觉自己挺没用的",
     "第三轮被问到一个项目细节，我脑子一下就空了",
     "嗯…可能我就是不适合这一行吧",
     "不知道，就是觉得很累",
+    "我最近一直这样，做什么都提不起劲",
+    "有时候晚上躺着会想很多",
+    "算了，说这些也没用",
+    "谢谢你听我说这么久",
 ]
 
 CUSTOMER_SERVICE = ["我理解你的感受", "我理解您", "作为你的助手", "有什么可以帮你",
@@ -132,7 +136,7 @@ def main() -> int:
 
     print()
     print("=" * 82)
-    print(" 连续 4 轮（看会不会越聊越像审问）")
+    print(" 连续 8 轮（看会不会越聊越像审问）")
     print("=" * 82)
     sid = "hchain-" + uuid.uuid4().hex[:8]
     chain: list[tuple[str, str]] = []
@@ -144,7 +148,7 @@ def main() -> int:
         chain.append((text, reply))
         print(f"  用户：{text}")
         print(f"  回复：{reply}  {'[问]' if ends_with_question(reply) else '[陈述]'}")
-    show("连续 4 轮", metrics(chain))
+    show("连续 8 轮", metrics(chain))
 
     print()
     print("-" * 82)
