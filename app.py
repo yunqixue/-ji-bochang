@@ -27,6 +27,8 @@ from src.shared.contracts import error_payload
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(REPO_ROOT, "src", "presentation", "static")
 IMAGES_DIR = os.path.join(REPO_ROOT, "assets", "images")
+# 桌面小人的 Q 版立绘单独放 assets/pet/，用 /pet 挂出去（页面右下角浮层用）
+PET_DIR = os.path.join(REPO_ROOT, "assets", "pet")
 
 
 def _warmup() -> None:
@@ -60,8 +62,10 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="情感交互智能体", version="0.3", lifespan=lifespan)
 
 os.makedirs(os.path.join(STATIC_DIR, "tts"), exist_ok=True)
+os.makedirs(PET_DIR, exist_ok=True)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.mount("/avatar", StaticFiles(directory=IMAGES_DIR), name="avatar")
+app.mount("/pet", StaticFiles(directory=PET_DIR), name="pet")
 
 
 @app.get("/")

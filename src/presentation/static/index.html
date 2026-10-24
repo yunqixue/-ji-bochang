@@ -1248,6 +1248,90 @@
   html[data-theme="ease"] .bubble { background: #fbf6ec; border-color: rgba(150, 128, 96, .2); }
   html[data-theme="ease"] input { background: #fbf7ee; }
   html[data-theme="ease"] .subtitle span { color: #4a4237; }
+  /* ===== 桌面小人浮层（B 追加）=====
+     fixed 定位在右下角，z-index 高但不拦截整页点击：只有小人本体可点。
+     形象是 Q 版透明立绘，呼吸用 CSS 动画，眨眼由 JS 换图（用真实的闭眼立绘，
+     不是靠缩放糊弄）。 */
+  .pet-layer {
+    position: fixed;
+    right: 18px;
+    bottom: 16px;
+    z-index: 60;
+    width: 168px;
+    pointer-events: none;
+    transition: opacity 260ms ease, transform 260ms ease;
+  }
+  .pet-layer[hidden] { display: none; }
+  html[data-pet="0"] .pet-layer { display: none; }
+  .pet-body {
+    position: relative;
+    width: 100%;
+    pointer-events: auto;
+    cursor: pointer;
+    filter: drop-shadow(0 10px 18px rgba(20, 30, 45, .35));
+    transform-origin: 50% 100%;
+    animation: petBreathe 4.2s ease-in-out infinite;
+    transition: transform 140ms ease-out;
+  }
+  .pet-body:hover { transform: scale(1.04); }
+  .pet-body.bounce { animation: petBounce 620ms ease-out; }
+  .pet-body img {
+    width: 100%;
+    display: block;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+  @keyframes petBreathe {
+    0%, 100% { transform: scale(1) translateY(0); }
+    50%      { transform: scale(1.015) translateY(-2px); }
+  }
+  @keyframes petBounce {
+    0%   { transform: scale(1) translateY(0); }
+    30%  { transform: scale(1.05) translateY(-14px); }
+    60%  { transform: scale(.98) translateY(2px); }
+    100% { transform: scale(1) translateY(0); }
+  }
+  .pet-bubble {
+    position: absolute;
+    right: 6px;
+    bottom: calc(100% - 6px);
+    max-width: 240px;
+    padding: 9px 12px;
+    border-radius: 12px;
+    background: rgba(255, 252, 246, .97);
+    color: #2b333b;
+    font-size: 13px;
+    line-height: 1.55;
+    box-shadow: 0 8px 22px -10px rgba(20, 30, 45, .45);
+    border: 1px solid rgba(120, 140, 160, .35);
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 200ms ease, transform 200ms ease;
+    pointer-events: none;
+    white-space: pre-wrap;
+  }
+  .pet-bubble.on { opacity: 1; transform: translateY(0); }
+  .pet-close {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 20px;
+    height: 20px;
+    line-height: 18px;
+    border-radius: 50%;
+    font-size: 13px;
+    color: #667;
+    background: rgba(255, 255, 255, .9);
+    border: 1px solid rgba(120, 140, 160, .35);
+    pointer-events: auto;
+    opacity: 0;
+    transition: opacity 160ms ease;
+  }
+  .pet-layer:hover .pet-close { opacity: 1; }
+  @media (max-width: 720px) {
+    .pet-layer { width: 118px; right: 10px; bottom: 10px; }
+    .pet-bubble { max-width: 180px; font-size: 12px; }
+  }
 </style>
 </head>
 <body>
@@ -1428,6 +1512,19 @@
     </div>
   </section>
 </section>
+
+<!-- ===================== 桌面小人浮层（B 2026-10-25 追加）=====================
+     一打开页面就出现在右下角，独立于两个视图，不影响原有布局与交互。
+     素材：assets/pet/q_*.webp（Q 版同一角色的 5 个表情，由 experiments/gen_pet_assets.py 生成）
+     行为：呼吸 → 随机眨眼 → 跟随智能体表情变脸 → 点她弹跳并说一句 → 可拖动。
+     ★ 想彻底关掉：给 <html> 加 data-pet="0"，或点她旁边的 ×。 -->
+<div class="pet-layer" id="pet-layer" aria-hidden="true">
+  <div class="pet-bubble" id="pet-bubble"></div>
+  <div class="pet-body" id="pet-body" title="点我一下">
+    <img id="pet-img" alt="" draggable="false">
+  </div>
+  <button class="pet-close" id="pet-close" type="button" title="收起小人">×</button>
+</div>
 
 <script>
 (function () {
@@ -2413,6 +2510,143 @@
     checkHealth();
     if (currentView === "chat") { chatInput.focus(); } else { callInput.focus(); }
   }
+
+  // ---------------- 桌面小人（B 追加）----------------
+  // Q 版立绘浮在右下角：会呼吸、会眨眼（用的是真实的闭眼立绘，不是缩放糊弄）、
+  // 跟着智能体的表情变脸、点她弹一下并说句话、可以拖到屏幕别处。
+  var pet = (function () {
+    var layer = $("pet-layer");
+    var body = $("pet-body");
+    var img = $("pet-img");
+    var bubble = $("pet-bubble");
+    var closeBtn = $("pet-close");
+    if (!layer || !body || !img) { return null; }
+
+    var ASSETS = {
+      calm: "/pet/q_calm.webp",
+      happy: "/pet/q_happy.webp",
+      sad: "/pet/q_sad.webp",
+      surprised: "/pet/q_surprised.webp",
+      blink: "/pet/q_blink.webp"
+    };
+    var ready = {};
+    Object.keys(ASSETS).forEach(function (k) {
+      var im = new Image();
+      im.onload = function () { ready[k] = true; };
+      im.src = ASSETS[k];
+    });
+
+    var mood = "calm";        // 当前表情
+    var blinking = false;
+    var bubbleTimer = 0;
+    var blinkTimer = 0;
+
+    // 智能体表情 → 小人表情
+    var MOOD_MAP = {
+      happy: "happy", surprised: "surprised",
+      sad: "sad", angry: "sad",
+      neutral: "calm", anxious: "calm", empathic: "calm"
+    };
+
+    function paint() {
+      var key = blinking ? "blink" : mood;
+      var url = ASSETS[key] || ASSETS.calm;
+      if (img.getAttribute("src") !== url) { img.src = url; }
+    }
+
+    function scheduleBlink() {
+      clearTimeout(blinkTimer);
+      var wait = 2200 + Math.random() * 3600;
+      blinkTimer = setTimeout(function () {
+        blinking = true;
+        paint();
+        setTimeout(function () { blinking = false; paint(); scheduleBlink(); }, 130);
+      }, wait);
+    }
+
+    function say(text, holdMs) {
+      if (!bubble || !text) { return; }
+      bubble.textContent = text;
+      bubble.classList.add("on");
+      clearTimeout(bubbleTimer);
+      bubbleTimer = setTimeout(function () { bubble.classList.remove("on"); },
+        holdMs || (1200 + text.length * 80));
+    }
+
+    function bounce() {
+      body.classList.remove("bounce");
+      void body.offsetWidth;
+      body.classList.add("bounce");
+    }
+
+    var PET_LINES = [
+      "我在这儿呢～", "要我陪你待一会儿吗？", "点我有事吗？",
+      "嘿嘿，被你点到了。", "累的话就靠一会儿吧。"
+    ];
+
+    body.addEventListener("click", function (e) {
+      if (dragged) { return; }
+      bounce();
+      say(PET_LINES[Math.floor(Math.random() * PET_LINES.length)]);
+      e.stopPropagation();
+    });
+
+    // 拖动：把 fixed 的 right/bottom 换成 left/top 再跟着鼠标走
+    var dragging = false, dragged = false, startX = 0, startY = 0, origL = 0, origT = 0;
+    body.addEventListener("pointerdown", function (e) {
+      var r = layer.getBoundingClientRect();
+      dragging = true; dragged = false;
+      startX = e.clientX; startY = e.clientY;
+      origL = r.left; origT = r.top;
+      layer.style.right = "auto";
+      layer.style.bottom = "auto";
+      layer.style.left = origL + "px";
+      layer.style.top = origT + "px";
+      body.setPointerCapture(e.pointerId);
+    });
+    body.addEventListener("pointermove", function (e) {
+      if (!dragging) { return; }
+      var dx = e.clientX - startX, dy = e.clientY - startY;
+      if (Math.abs(dx) + Math.abs(dy) > 4) { dragged = true; }
+      layer.style.left = (origL + dx) + "px";
+      layer.style.top = (origT + dy) + "px";
+    });
+    body.addEventListener("pointerup", function (e) {
+      dragging = false;
+      try { body.releasePointerCapture(e.pointerId); } catch (err) { }
+      setTimeout(function () { dragged = false; }, 30);
+    });
+
+    if (closeBtn) {
+      closeBtn.addEventListener("click", function (e) {
+        document.documentElement.setAttribute("data-pet", "0");
+        e.stopPropagation();
+      });
+    }
+
+    paint();
+    scheduleBlink();
+    return {
+      setMood: function (expr) {
+        var m = MOOD_MAP[expr] || "calm";
+        if (m === mood) { return; }
+        mood = m;
+        paint();
+      },
+      say: say,
+      bounce: bounce
+    };
+  })();
+
+  // 让小人跟着智能体的表情走：包一层 setExpression，不去改它原来的逻辑
+  (function hookPetMood() {
+    if (!pet || typeof setExpression !== "function") { return; }
+    var orig = setExpression;
+    setExpression = function (expr) {
+      orig.apply(null, arguments);
+      try { pet.setMood(expr); } catch (e) { }
+    };
+  })();
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);
