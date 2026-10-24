@@ -1248,18 +1248,20 @@
   html[data-theme="ease"] .bubble { background: #fbf6ec; border-color: rgba(150, 128, 96, .2); }
   html[data-theme="ease"] input { background: #fbf7ee; }
   html[data-theme="ease"] .subtitle span { color: #4a4237; }
-  /* ===== 桌面小人浮层（B 追加）=====
-     fixed 定位在右下角，z-index 高但不拦截整页点击：只有小人本体可点。
-     形象是 Q 版透明立绘，呼吸用 CSS 动画，眨眼由 JS 换图（用真实的闭眼立绘，
-     不是靠缩放糊弄）。 */
+  /* ===== 桌面小人浮层（B 追加，v2）=====
+     ① 气泡做成"思考气泡"：椭圆圆角 + 深蓝描边 + 三个由大到小的圆点尾巴（照用户给的参考图）
+     ② 眨眼：换真实的闭眼立绘
+     ③ 说话：在 q_<表情> 与 q_talk（张嘴）之间快速交替，像在讲话
+     ④ 待机随机小动作：蹦一下 / 摇摆 / 歪头 / 左右挪 / 鼓起
+     ⑤ 水印已从素材层面清掉（抠图时只保留最大连通域，"AI 生成"那串字与贴纸不相连，会被整体丢弃） */
   .pet-layer {
     position: fixed;
     right: 18px;
-    bottom: 16px;
+    /* ★ 留出底部输入框的高度：小人会吃点击，压在"发送"按钮上就点不到了（实测发现） */
+    bottom: 92px;
     z-index: 60;
     width: 168px;
     pointer-events: none;
-    transition: opacity 260ms ease, transform 260ms ease;
   }
   .pet-layer[hidden] { display: none; }
   html[data-pet="0"] .pet-layer { display: none; }
@@ -1268,69 +1270,117 @@
     width: 100%;
     pointer-events: auto;
     cursor: pointer;
-    filter: drop-shadow(0 10px 18px rgba(20, 30, 45, .35));
+    filter: drop-shadow(0 10px 18px rgba(20, 30, 45, .32));
     transform-origin: 50% 100%;
     animation: petBreathe 4.2s ease-in-out infinite;
     transition: transform 140ms ease-out;
+    touch-action: none;
   }
   .pet-body:hover { transform: scale(1.04); }
-  .pet-body.bounce { animation: petBounce 620ms ease-out; }
-  .pet-body img {
-    width: 100%;
-    display: block;
-    user-select: none;
-    -webkit-user-drag: none;
-  }
+  .pet-body img { width: 100%; display: block; user-select: none; -webkit-user-drag: none; }
+
   @keyframes petBreathe {
     0%, 100% { transform: scale(1) translateY(0); }
     50%      { transform: scale(1.015) translateY(-2px); }
   }
-  @keyframes petBounce {
-    0%   { transform: scale(1) translateY(0); }
-    30%  { transform: scale(1.05) translateY(-14px); }
-    60%  { transform: scale(.98) translateY(2px); }
-    100% { transform: scale(1) translateY(0); }
+  /* 待机小动作：写成"一次性"动画，由 JS 加类触发、动画结束再摘掉 */
+  .pet-body.act-hop   { animation: petHop 560ms cubic-bezier(.3,.9,.3,1); }
+  .pet-body.act-sway  { animation: petSway 1400ms ease-in-out; }
+  .pet-body.act-lean  { animation: petLean 1200ms ease-in-out; }
+  .pet-body.act-slide { animation: petSlide 1800ms ease-in-out; }
+  .pet-body.act-pulse { animation: petPulse 900ms ease-in-out; }
+  .pet-body.act-shake { animation: petShake 700ms ease-in-out; }
+  @keyframes petHop {
+    0% { transform: translateY(0) scale(1); }
+    30% { transform: translateY(-22px) scale(1.05, .96); }
+    55% { transform: translateY(0) scale(.97, 1.04); }
+    75% { transform: translateY(-6px) scale(1.01); }
+    100% { transform: translateY(0) scale(1); }
   }
+  @keyframes petSway {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-4deg); }
+    60% { transform: rotate(4deg); }
+  }
+  @keyframes petLean {
+    0%, 100% { transform: rotate(0) translateX(0); }
+    35% { transform: rotate(-6deg) translateX(-4px); }
+    70% { transform: rotate(-2deg) translateX(2px); }
+  }
+  @keyframes petSlide {
+    0%, 100% { transform: translateX(0); }
+    35% { transform: translateX(-26px); }
+    65% { transform: translateX(14px); }
+  }
+  @keyframes petPulse {
+    0%, 100% { transform: scale(1); }
+    45% { transform: scale(1.09); }
+  }
+  @keyframes petShake {
+    0%, 100% { transform: rotate(0); }
+    20% { transform: rotate(3deg); }
+    40% { transform: rotate(-3deg); }
+    60% { transform: rotate(2deg); }
+    80% { transform: rotate(-2deg); }
+  }
+
+  /* ---- 思考气泡（照参考图：白底 + 深蓝描边 + 三点尾巴）---- */
   .pet-bubble {
     position: absolute;
-    right: 6px;
-    bottom: calc(100% - 6px);
-    max-width: 240px;
-    padding: 9px 12px;
-    border-radius: 12px;
-    background: rgba(255, 252, 246, .97);
-    color: #2b333b;
-    font-size: 13px;
-    line-height: 1.55;
-    box-shadow: 0 8px 22px -10px rgba(20, 30, 45, .45);
-    border: 1px solid rgba(120, 140, 160, .35);
+    right: 4px;
+    bottom: calc(100% + 26px);
+    max-width: 250px;
+    padding: 12px 18px;
+    border-radius: 22px / 24px;
+    background: #fffdf8;
+    color: #1f3a5f;
+    font-size: 13.5px;
+    line-height: 1.6;
+    font-weight: 600;
+    text-align: center;
+    border: 2.5px solid #24466f;
+    box-shadow: 0 10px 24px -12px rgba(20, 40, 70, .45);
     opacity: 0;
-    transform: translateY(4px);
-    transition: opacity 200ms ease, transform 200ms ease;
+    transform: translateY(6px) scale(.96);
+    transform-origin: 90% 100%;
+    transition: opacity 200ms ease, transform 220ms cubic-bezier(.2,.9,.3,1.2);
     pointer-events: none;
     white-space: pre-wrap;
   }
-  .pet-bubble.on { opacity: 1; transform: translateY(0); }
+  .pet-bubble.on { opacity: 1; transform: translateY(0) scale(1); }
+  /* 三点尾巴：从大到小朝小人头顶方向排下去 */
+  .pet-bubble i {
+    position: absolute;
+    display: block;
+    border-radius: 50%;
+    background: #fffdf8;
+    border: 2.5px solid #24466f;
+  }
+  .pet-bubble i.t1 { width: 13px; height: 11px; right: 16px; bottom: -12px; }
+  .pet-bubble i.t2 { width: 8px;  height: 7px;  right: 8px;  bottom: -24px; }
+  .pet-bubble i.t3 { width: 5px;  height: 4px;  right: 4px;  bottom: -33px; }
+
   .pet-close {
     position: absolute;
-    top: -4px;
-    right: -4px;
+    top: -2px;
+    right: -2px;
     width: 20px;
     height: 20px;
-    line-height: 18px;
+    line-height: 17px;
     border-radius: 50%;
     font-size: 13px;
     color: #667;
-    background: rgba(255, 255, 255, .9);
-    border: 1px solid rgba(120, 140, 160, .35);
+    background: rgba(255, 255, 255, .92);
+    border: 1px solid rgba(120, 140, 160, .4);
     pointer-events: auto;
     opacity: 0;
     transition: opacity 160ms ease;
   }
   .pet-layer:hover .pet-close { opacity: 1; }
   @media (max-width: 720px) {
-    .pet-layer { width: 118px; right: 10px; bottom: 10px; }
-    .pet-bubble { max-width: 180px; font-size: 12px; }
+    .pet-layer { width: 108px; right: 8px; bottom: 82px; }
+    .pet-bubble { max-width: 180px; font-size: 12px; padding: 9px 13px; border-width: 2px; }
+    .pet-bubble i { border-width: 2px; }
   }
 </style>
 </head>
@@ -1519,7 +1569,7 @@
      行为：呼吸 → 随机眨眼 → 跟随智能体表情变脸 → 点她弹跳并说一句 → 可拖动。
      ★ 想彻底关掉：给 <html> 加 data-pet="0"，或点她旁边的 ×。 -->
 <div class="pet-layer" id="pet-layer" aria-hidden="true">
-  <div class="pet-bubble" id="pet-bubble"></div>
+  <div class="pet-bubble" id="pet-bubble"><span id="pet-bubble-text"></span><i class="t1"></i><i class="t2"></i><i class="t3"></i></div>
   <div class="pet-body" id="pet-body" title="点我一下">
     <img id="pet-img" alt="" draggable="false">
   </div>
@@ -2527,7 +2577,8 @@
       happy: "/pet/q_happy.webp",
       sad: "/pet/q_sad.webp",
       surprised: "/pet/q_surprised.webp",
-      blink: "/pet/q_blink.webp"
+      blink: "/pet/q_blink.webp",
+      talk: "/pet/q_talk.webp",
     };
     var ready = {};
     Object.keys(ASSETS).forEach(function (k) {
@@ -2566,7 +2617,8 @@
 
     function say(text, holdMs) {
       if (!bubble || !text) { return; }
-      bubble.textContent = text;
+      var textEl = $("pet-bubble-text");
+      if (textEl) { textEl.textContent = text; }
       bubble.classList.add("on");
       clearTimeout(bubbleTimer);
       bubbleTimer = setTimeout(function () { bubble.classList.remove("on"); },
@@ -2624,9 +2676,51 @@
       });
     }
 
+    // ---- 说话：在"当前表情"和"张嘴"之间快速交替，看起来像在讲话 ----
+    var talkTimer = 0;
+    var talking = false;
+    function startTalk() {
+      if (talking) { return; }
+      talking = true;
+      var open = false;
+      talkTimer = setInterval(function () {
+        open = !open;
+        img.src = open ? ASSETS.talk : (ASSETS[mood] || ASSETS.calm);
+      }, 115);
+    }
+    function stopTalk() {
+      if (!talking) { return; }
+      talking = false;
+      clearInterval(talkTimer);
+      paint();
+    }
+
+    // ---- 待机随机小动作：蹦 / 摇摆 / 歪头 / 左右挪 / 鼓起 / 抖一下 ----
+    var ACTS = ["act-hop", "act-sway", "act-lean", "act-slide", "act-pulse", "act-shake"];
+    function clearActs() { ACTS.forEach(function (a) { body.classList.remove(a); }); }
+    function doAct() {
+      clearActs();
+      var a = ACTS[Math.floor(Math.random() * ACTS.length)];
+      void body.offsetWidth;
+      body.classList.add(a);
+      setTimeout(clearActs, 1900);
+    }
+    var actTimer = 0;
+    function scheduleAct() {
+      clearTimeout(actTimer);
+      actTimer = setTimeout(function () {
+        if (!talking && !document.hidden) { doAct(); }
+        scheduleAct();
+      }, 5000 + Math.random() * 7000);
+    }
+
     paint();
     scheduleBlink();
+    scheduleAct();
     return {
+      startTalk: startTalk,
+      stopTalk: stopTalk,
+      act: doAct,
       setMood: function (expr) {
         var m = MOOD_MAP[expr] || "calm";
         if (m === mood) { return; }
@@ -2646,6 +2740,36 @@
       orig.apply(null, arguments);
       try { pet.setMood(expr); } catch (e) { }
     };
+  })();
+
+  // 说话时让小人张嘴：包一层 setStageState，speaking 时开始/停止口型交替
+  (function hookPetTalk() {
+    if (!pet || typeof setStageState !== "function") { return; }
+    var origState = setStageState;
+    setStageState = function (state) {
+      origState.apply(null, arguments);
+      try {
+        if (state === "speaking") { pet.startTalk(); } else { pet.stopTalk(); }
+      } catch (e) { }
+    };
+  })();
+
+  // 调试/截图用：?petbubble=1 直接弹一个气泡出来，方便确认气泡样式
+  (function petDebug() {
+    if (!pet) { return; }
+    if (/[?&]petbubble=1\b/.test(location.search)) {
+      pet.say("你好呀，我是小戴～ 点我可以跟我说话", 60000);
+      // 截图/调试时立刻显示，不等过渡动画
+      var bb = document.getElementById("pet-bubble");
+      if (bb) { bb.style.transition = "none"; bb.style.opacity = "1"; bb.style.transform = "none"; }
+    }
+    if (/[?&]petact=([a-z]+)/.test(location.search)) {
+      var m = location.search.match(/[?&]petact=([a-z]+)/);
+      setTimeout(function () {
+        var body = document.querySelector(".pet-body");
+        if (body && m) { body.classList.add("act-" + m[1]); }
+      }, 300);
+    }
   })();
 
   if (document.readyState === "loading") {
