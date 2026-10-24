@@ -222,6 +222,7 @@ python experiments/prewarm_demo --file docs/演示脚本.txt
 | `?state=speaking` | 固定在"说话中"（看光晕和波形） |
 | `?voice=0.6` | 把音量固定成 0.6（检查"随声音推近"的视觉效果，不依赖真实音频） |
 | `?voiceauto=1` | 音量自动起伏 —— **这台机器没声音时也能看到动效对不对** |
+| `?bg=房间` | 换背景场景（C 留的接口）：需要 `assets/images/bg_房间.webp`，没有图就自动回落到"当前表情虚化" |
 
 可以叠加，例如 `http://127.0.0.1:8000/?theme=cream&voiceauto=1`。
 
