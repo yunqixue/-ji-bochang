@@ -76,8 +76,21 @@ def main() -> int:
     print(f"预演台词 {len(lines)} 句 ｜ temperature={os.getenv('DEEPSEEK_TEMPERATURE', '0.8')}")
     print("=" * 84)
 
+    # 上一次的缓存：万一这次语音合成失败，就沿用上一次「回复+音频」这一对，
+    # 不能因为一晚网络不好就把整张兜底表清空（演示前一天发生这个最致命）。
+    cache_path = os.path.join(REPO_ROOT, "data", "demo_cache.json")
+    tts_dir = os.path.join(REPO_ROOT, "src", "presentation", "static", "tts")
+    old_entries: dict[str, dict] = {}
+    if os.path.exists(cache_path):
+        try:
+            with open(cache_path, "r", encoding="utf-8") as fh:
+                old_entries = (json.load(fh) or {}).get("entries") or {}
+        except Exception:
+            old_entries = {}
+
     agent.reset(args.session)
     ok_tts = 0
+    reused = 0
     report_lines = ["# 演示预演记录", "", "由 `python -m experiments.prewarm_demo` 生成。", ""]
     # 同时生成「演示兜底缓存」：模型调不通 / 现场断网时，agent 会先查这张表，
     # 用这里存下的真实回复和已合成音频顶上，演示时听不出差别。
@@ -114,6 +127,15 @@ def main() -> int:
                 "pitch_shift": response.pitch_shift,
                 "audio_url": audio_url,
             }
+        elif text in old_entries:
+            # 这次没合成出语音（或这一轮没走真实模型）→ 沿用上一次的「回复+音频」。
+            # 必须成对沿用：只换文字会声文不符，比没声音更糟。
+            prev = old_entries[text]
+            prev_audio = os.path.join(tts_dir, os.path.basename(prev.get("audio_url") or ""))
+            if prev.get("audio_url") and os.path.exists(prev_audio) and os.path.getsize(prev_audio) > 1000:
+                cache_entries[text] = prev
+                reused += 1
+                print(f"         ↳ 这次没生成成功，沿用上一次的回复+音频：{prev.get('reply', '')[:30]}")
 
         report_lines += [
             f"## 第 {i} 句", "",
@@ -126,7 +148,6 @@ def main() -> int:
         ]
 
     # 写兜底缓存
-    cache_path = os.path.join(REPO_ROOT, "data", "demo_cache.json")
     os.makedirs(os.path.dirname(cache_path), exist_ok=True)
     with open(cache_path, "w", encoding="utf-8") as fh:
         json.dump(
@@ -138,6 +159,8 @@ def main() -> int:
             fh, ensure_ascii=False, indent=2,
         )
     print(f"兜底缓存：{len(cache_entries)} 条 → {cache_path}")
+    if reused:
+        print(f"   其中 {reused} 条沿用上一次的（这次没生成成功，但演示时照样有声音）")
     if len(cache_entries) < len(lines):
         print("⚠️ 有几句没进缓存（语音合成失败，或那一轮没走真实模型），断网时会退回固定模板。")
 
