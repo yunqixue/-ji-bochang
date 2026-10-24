@@ -2086,11 +2086,24 @@
     setExpression("neutral");
 
     // 调试 / 演示用参数：
-    //   ?expr=sad   直接定在某一张表情（等价于走一次换图，可当回归用）
-    //   ?cycle=1    每 900ms 自动换一张，用来确认换图真的生效
+    //   ?expr=sad      直接定在某一张表情（等价于走一次换图，可当回归用）
+    //   ?cycle=1       每 900ms 自动换一张，用来确认换图真的生效
+    //   ?state=speaking 直接把状态设成"说话中"（看波形/光晕）
+    //   ?voice=0.6     把音量固定成 0.6（检查"随声音推近"的视觉，不依赖真实音频）
+    //   ?voiceauto=1   让音量自己起伏（这台机器没声音时也能看动效对不对）
     var forced = (location.search.match(/[?&]expr=([a-z]+)/) || [])[1];
     if (forced && EMOTION[forced]) { setExpression(forced); }
     if (/[?&]state=speaking\b/.test(location.search)) { setStageState("speaking"); }
+    var fixedVoice = (location.search.match(/[?&]voice=([0-9.]+)/) || [])[1];
+    if (fixedVoice) { document.documentElement.style.setProperty("--voice", fixedVoice); }
+    if (/[?&]voiceauto=1\b/.test(location.search)) {
+      setStageState("speaking");
+      var vStart = Date.now();
+      setInterval(function () {
+        var v = 0.45 + 0.45 * Math.abs(Math.sin((Date.now() - vStart) / 380));
+        document.documentElement.style.setProperty("--voice", v.toFixed(3));
+      }, 60);
+    }
     if (/[?&]cycle=1\b/.test(location.search)) {
       var seq = ["sad", "happy", "angry", "empathic", "anxious", "surprised"];
       var idx = 0;
