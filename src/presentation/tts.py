@@ -128,12 +128,13 @@ def _pyttsx3_save(text: str, out_path: str) -> None:
 
 
 def synthesize(text: str, speech_rate: float = 1.0, pitch_shift: float = 0.0,
-               retries: int = 2) -> Optional[str]:
+               retries: int = 3) -> Optional[str]:
     """生成语音，返回可直接给前端的 URL；任何失败都返回 None（不抛异常）。
 
-    retries: 在线合成重试次数。
-      实时对话默认 2 —— 实测每次尝试成功率约 40%，3 次重试在失败时会把一次对话拖到 18 秒，
-      用户等不起；失败就尽快落到 SAPI 离线兜底。
+    retries: 在线合成尝试次数。
+      实测：连不上微软服务器时是**快速失败**（每次约 0.4 秒就抛 ClientConnectorError），
+      不是死死等超时。所以多重试几次的代价很小，但能把"偶发连不上"救回来一大半。
+      默认 3 次；演示现场完全连不上时最坏多花约 2.5 秒，之后就落到 SAPI 离线兜底。
       演示预演请传 8 —— 那时不赶时间，可以慢慢补到全部成功。
     """
     text = (text or "").strip()

@@ -29,13 +29,25 @@ TTS_DIR = os.path.join(REPO_ROOT, "src", "presentation", "static", "tts")
 
 
 def asr_variants(text: str) -> list[str]:
-    """模拟语音识别可能给出的形态：加句号、全角转半角逗号、多余空格。"""
-    return [
+    """模拟语音识别可能给出的形态：加句号、全角转半角逗号、多余空格、漏字。"""
+    variants = [
         text,
         text + "。",                          # ASR 几乎一定会在末尾加句号
         text.replace("，", ",") + "。",         # ASR 有时输出半角逗号
         " " + text + "？",                     # 前后空格 + 别的标点
     ]
+    if len(text) > 8:
+        # ASR 偶尔漏字/多字：只差一个字的句子必须还能命中（靠相似度兜底）
+        variants.append(text[:4] + text[5:])
+    return variants
+
+
+# 实测到的真实同音错字（base 模型把「交」听成「教」）。
+# 这类错字在线模式下模型能自己懂，但断网模式依赖缓存，必须也能命中。
+HOMOPHONE_CASES = [
+    ("明天要教的东西还没做完，越想越睡不着", "明天要交的东西还没做完，越想越睡不着"),
+    ("第三轮被问到一个项目细节，我脑子一下就空了，卡了十几秒", None),
+]
 
 
 def main() -> int:
@@ -100,6 +112,16 @@ def main() -> int:
     print(f"{'✅' if miss_ok else '❌'} 非预置输入正常退回固定模板："
           f"{(r.debug or {}).get('fallback_source')} → {r.reply_text}")
 
+    # 3.5 真实同音错字：语音识别听错一个字，也要能命中缓存
+    print()
+    homo_ok = True
+    for i, (said, expect) in enumerate(HOMOPHONE_CASES):
+        _p, r = agent.respond(f"tb-homo-{i}", said)
+        src = (r.debug or {}).get("fallback_source")
+        ok = src == "demo_cache"
+        homo_ok = homo_ok and ok
+        print(f"{'✅' if ok else '❌'} 同音错字 {said[:16]}… → {src or '未命中'}")
+
     # 4. 音频文件
     print()
     if audio_missing:
@@ -113,7 +135,7 @@ def main() -> int:
     print()
     print("-" * 84)
     rate = hits / total * 100 if total else 0
-    ok_all = (hits == total) and not audio_missing and miss_ok
+    ok_all = (hits == total) and not audio_missing and miss_ok and homo_ok
     print(f" 命中率：{hits}/{total} = {rate:.0f}%")
     if ok_all:
         print(" 结论：断网也能正常演示这几句台词 ✅")

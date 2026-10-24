@@ -11,6 +11,7 @@
 """
 from __future__ import annotations
 
+import difflib
 import json
 import os
 import random
@@ -74,6 +75,14 @@ def remember(session_id: str, user_text: str, reply: str, emotion: str) -> None:
 
 def reset(session_id: str) -> None:
     MEMORY.pop(session_id, None)
+
+
+def _recent_distress(mem: Dict[str, Any], window: int = 3) -> bool:
+    """最近几轮里对方有没有说过难过/焦虑的事（用于「情绪余温」）。"""
+    for turn in (mem.get("turns") or [])[-window:]:
+        if turn.get("emotion") in ("sad", "anxious", "angry"):
+            return True
+    return False
 
 
 # ---- 对话日志：每轮追加一行 JSONL，调提示词时靠它回溯 ----
@@ -407,6 +416,13 @@ def demo_cache_status() -> Dict[str, Any]:
 
 
 def _demo_lookup(text: str) -> Optional[Dict[str, Any]]:
+    """按用户原话找预置回复。
+
+    先精确匹配；不中再按相似度兜底。为什么要兜底：语音识别会出现同音错字，
+    实测 base 模型把「明天要交的东西还没做完」识别成「明天要教的东西还没做完」——
+    只差一个字，精确匹配就落空，断网演示会掉到固定模板，一眼看出是假的。
+    相似度阈值 0.75：同音错字通常 >0.9，不同句子远低于 0.75。
+    """
     cache = _load_demo_cache()
     if not cache or not text:
         return None
@@ -414,6 +430,15 @@ def _demo_lookup(text: str) -> Optional[Dict[str, Any]]:
     for raw, entry in cache.items():
         if _norm_text(raw) == key:
             return entry
+
+    best_entry: Optional[Dict[str, Any]] = None
+    best_ratio = 0.0
+    for raw, entry in cache.items():
+        ratio = difflib.SequenceMatcher(None, key, _norm_text(raw)).ratio()
+        if ratio > best_ratio:
+            best_ratio, best_entry = ratio, entry
+    if best_entry is not None and best_ratio >= 0.75:
+        return best_entry
     return None
 
 
@@ -591,6 +616,11 @@ def respond(
 
     # 智能体自己的表情：对方难过/焦虑时用 empathic 共情
     target = "empathic" if emotion in ("sad", "anxious") else emotion
+    # 情绪余温：这一句本身没带情绪（比如「你还记得我说过什么吗」会被判成 neutral），
+    # 但刚才几轮对方一直在说难过的事 —— 这时把脸切回"平常"会显得没在听。
+    # 只影响表情/语调，不改 perception 里判定的用户情绪。
+    if target == "neutral" and _recent_distress(mem):
+        target = "empathic"
     memory_used = [f"turn:{t}" for t in range(max(0, mem["count"] - 2), mem["count"])]
 
     response = CognitionResponse.from_emotion(

@@ -26,7 +26,11 @@ os.environ.setdefault("HF_HOME", os.path.join(_REPO_ROOT, "data", "models", "hf"
 os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
 
 _MODEL = None
-_MODEL_SIZE = os.getenv("ASR_MODEL_SIZE", "small")   # tiny / base / small / medium
+# 默认 base：和 experiments/download_asr_model.py 的默认值保持一致（约 150MB，演示够用）。
+# 原来这里写的是 small，但下载脚本默认下 base —— 结果本地有模型也判成"没下载"，
+# 真到演示现场会去联网拉 500MB。两边必须对齐，改这里记得同时改下载脚本。
+_MODEL_SIZE = os.getenv("ASR_MODEL_SIZE", "base")   # tiny / base / small / medium
+_MODEL_FILES = ["model.bin", "vocabulary.txt", "tokenizer.json", "config.json"]
 
 # 中文识别的关键技巧：给一个 initial_prompt，whisper 会输出更自然的书面/口语表达，
 # 标点更准、少出现"嗯嗯啊啊"的重复。改这句能明显提升中文效果。
@@ -45,18 +49,36 @@ def available() -> bool:
         return False
 
 
+def _dir_ready(d: str) -> bool:
+    """这个目录里的模型文件齐了没（model.bin + vocabulary.txt + tokenizer.json + config.json）。"""
+    return os.path.isdir(d) and all(
+        os.path.exists(os.path.join(d, f)) and os.path.getsize(os.path.join(d, f)) > 100
+        for f in _MODEL_FILES
+    )
+
+
 def local_model_dir() -> str:
-    """本项目自己的模型目录：data/models/faster-whisper-<尺寸>/"""
-    return os.path.join(_REPO_ROOT, "data", "models", f"faster-whisper-{_MODEL_SIZE}")
+    """本项目自己的模型目录：data/models/faster-whisper-<尺寸>/
+
+    找不到指定尺寸时，退回用项目里已经下好的任意尺寸 ——
+    宁可精度差一点，也不要在演示现场去联网下几百 MB。
+    """
+    want = os.path.join(_REPO_ROOT, "data", "models", f"faster-whisper-{_MODEL_SIZE}")
+    if _dir_ready(want):
+        return want
+    parent = os.path.join(_REPO_ROOT, "data", "models")
+    if os.path.isdir(parent):
+        for name in sorted(os.listdir(parent)):
+            if name.startswith("faster-whisper-"):
+                cand = os.path.join(parent, name)
+                if _dir_ready(cand):
+                    return cand
+    return want
 
 
 def model_ready() -> bool:
-    """本地模型文件齐了没（model.bin + vocabulary.txt + tokenizer.json + config.json）。"""
-    d = local_model_dir()
-    need = ["model.bin", "vocabulary.txt", "tokenizer.json", "config.json"]
-    return os.path.isdir(d) and all(
-        os.path.exists(os.path.join(d, f)) and os.path.getsize(os.path.join(d, f)) > 100 for f in need
-    )
+    """本地模型文件齐了没（会自动认项目里已有的任意尺寸）。"""
+    return _dir_ready(local_model_dir())
 
 
 def _get_model():

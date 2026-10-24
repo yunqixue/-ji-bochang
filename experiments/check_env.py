@@ -86,7 +86,7 @@ def check_asr_model() -> None:
         add(WARN, "ASR 模型", "先装 faster-whisper，再下载模型")
         return
     if asr.model_ready():
-        size = os.getenv("ASR_MODEL_SIZE", "small")
+        size = os.path.basename(asr.local_model_dir()).replace("faster-whisper-", "")
         add(OK, f"ASR 模型就绪（{size}）", "本地目录已有模型")
     else:
         add(WARN, "ASR 模型未下载", "python experiments/download_asr_model.py（约150MB）")
@@ -110,8 +110,8 @@ def check_env_vars() -> None:
         add(WARN, "DEEPSEEK_API_KEY", "没配 → 对话走 mock 模式（关键词回复，不好听）")
         add(WARN, "api_key.txt", "把 Key 粘进项目根目录的 api_key.txt 即可")
 
-    model = os.getenv("ASR_MODEL_SIZE", "small")
-    add(OK, "ASR 模型尺寸", model)
+    model = os.getenv("ASR_MODEL_SIZE", "base")
+    add(OK, "ASR 模型尺寸", model + "（可用 ASR_MODEL_SIZE 环境变量改）")
 
 
 def check_tts_live() -> None:
@@ -132,9 +132,11 @@ def check_tts_live() -> None:
         add(BAD, "语音合成实测", "没有可用的 TTS 后端")
         return
 
-    url = tts.synthesize("环境自检，测试一下语音能不能出来。", 1.0, 0.0, retries=2)
+    url = tts.synthesize("环境自检，测试一下语音能不能出来。", 1.0, 0.0, retries=4)
     if not url:
-        add(BAD, "语音合成实测", "合成失败：在线和离线兜底都没成功（演示时会没声音）")
+        # 走到这里说明在线合成 4 次全失败、且 SAPI / pyttsx3 也没出一个字节。
+        # 常见原因：网络被限、或这台机器的语音组件被权限/策略挡住（远程桌面、精简版系统）。
+        add(BAD, "语音合成实测", "在线 + 离线兜底都失败 → 演示时没声音，改用离线保险模式")
     elif url.endswith(".mp3"):
         add(OK, "语音合成实测", "在线合成成功（音色好）")
     else:
