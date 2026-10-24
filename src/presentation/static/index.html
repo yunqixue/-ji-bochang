@@ -1232,11 +1232,11 @@
      ⑤ 水印已从素材层面清掉（抠图时只保留最大连通域，"AI 生成"那串字与贴纸不相连，会被整体丢弃） */
   .pet-layer {
     position: fixed;
-    right: 18px;
+    right: 200px;   /* 让开右下角的"摄像头未开"小窗 */
     /* ★ 留出底部输入框的高度：小人会吃点击，压在"发送"按钮上就点不到了（实测发现） */
-    bottom: 92px;
+    bottom: 152px;
     z-index: 60;
-    width: 168px;
+    width: 128px;
     pointer-events: none;
   }
   .pet-layer[hidden] { display: none; }
