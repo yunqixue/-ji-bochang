@@ -1,24 +1,32 @@
-# 三天冲刺版依赖（Python 3.10）
+# 三天冲刺版依赖（主跑环境 Python 3.10，B 机演示）
 # 安装：pip install -r requirements.txt
-# 说明见 docs/技术选型与冻结.md —— 三天内不要随意增删依赖
+# 版本已按 10-24 锁定到小版本（~= 表示锁到该小版本的 patch 级）：
+#   锁定依据是 10-23 两台机器实测能跑的版本，避免"我这儿能跑"的口头承诺。
+# 说明见 docs/技术选型与冻结.md —— 三天内不要随意增删依赖。
 
-fastapi>=0.110,<1.0
-uvicorn[standard]>=0.29
-python-multipart>=0.0.9
+fastapi~=0.159.0
+uvicorn[standard]~=0.54.0
+python-multipart~=0.0.32
 
-# ASR：本地语音识别
-# 注意：装完这个包还要单独下模型（base 约 150MB / small 约 500MB，不进仓库）
-#   下载命令： python experiments/download_asr_model.py
-#   检查命令： python experiments/download_asr_model.py --check
-# 不要依赖 faster-whisper 自带的 HF 下载：国内常卡死，且缓存写到用户目录可能没权限
-faster-whisper>=1.0.3
+# ASR：本地语音识别（B 机 Python 3.10 实测 1.2.1 通过）
+# 注意：装完还要单独下模型（base 约 150MB / small 约 500MB，不进仓库）
+#   下载： python experiments/download_asr_model.py
+#   检查： python experiments/download_asr_model.py --check
+faster-whisper~=1.2.1
 
 # TTS：微软 edge-tts，免费，中文音色好
-edge-tts>=6.1.9
+edge-tts~=7.3.1
 
-# LLM：用 openai SDK 调 DeepSeek（base_url 指向 api.deepseek.com）
-openai>=1.30.0
+# LLM：openai SDK 调 DeepSeek
+openai~=3.36.1
 
-# 可选：Day2 有余力再用音频特征辅助判断情绪（体积较大，先不装也行）
+# 可选（Day2 有余力用，体积大，先不装也行）
 # librosa>=0.10
 # numpy>=1.24
+
+# ---------------------------------------------------------------
+# Python 3.14 用户（C 机）注意，见 ADR-003：
+#   1. uvicorn[standard] 装不上（pyyaml 无 3.14 轮子）→ 改用裸 uvicorn：
+#        pip install "fastapi~=0.159.0" "uvicorn~=0.54.0" "python-multipart~=0.0.32" "edge-tts~=7.3.1" "openai~=3.36.1"
+#   2. faster-whisper 装不上（ctranslate2 无 3.14 轮子）→ 语音输入在 3.14 不可用，
+#      演示统一跑 B 的机器（ADR-005）。
