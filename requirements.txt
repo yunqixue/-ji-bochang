@@ -30,3 +30,9 @@ openai~=3.36.1
 #        pip install "fastapi~=0.159.0" "uvicorn~=0.54.0" "python-multipart~=0.0.32" "edge-tts~=7.3.1" "openai~=3.36.1"
 #   2. faster-whisper 装不上（ctranslate2 无 3.14 轮子）→ 语音输入在 3.14 不可用，
 #      演示统一跑 B 的机器（ADR-005）。
+
+# ---------------------------------------------------------------
+# 桌面小人（可选，只在演示机上装；不影响网页与后端）
+#   双击 启动桌面小人.cmd 需要它；播放语音用 PyAV(已随 faster-whisper 装上) + winsound
+#   注意：装 Essentials 就够，Addons(约 200MB) 不需要 —— 语音播放没走 QtMultimedia
+# PySide6-Essentials~=6.12.0
