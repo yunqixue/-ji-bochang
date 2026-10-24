@@ -86,3 +86,6 @@ logs/
 *api-key*
 *secret*
 *credential*
+
+# 本地工具（ffmpeg 81MB，不进仓库）
+experiments/imgtool/bin/

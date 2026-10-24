@@ -1258,6 +1258,23 @@
     background: rgba(22, 18, 28, .42);
     text-shadow: 0 1px 3px rgba(0, 0, 0, .5);
   }
+
+  /* 说话时播放真实视频片段（嘴真的在动），待机时淡出回静态表情图 */
+  .talk-video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 50% 22%;
+    opacity: 0;
+    transition: opacity 180ms ease;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .stage[data-talking="1"] .talk-video { opacity: 1; }
+  /* 3D 模型就绪时让位给 3D（3D 有真逐字口型） */
+  .stage[data-avatar3d="1"] .talk-video { display: none; }
 </style>
 </head>
 <body>
@@ -1302,6 +1319,8 @@
   <div class="stage" id="stage" data-state="idle">
     <div class="stage-bg"><img id="bg-call" alt=""></div>
     <div class="stage-tint"></div>
+    <video class="talk-video" id="talk-call" muted loop playsinline preload="auto"
+           src="/static/avatar/talk_loop.mp4"></video>
     <div class="avatar-frame">
       <img class="avatar-img layer-a" id="avatar-a" alt="">
       <img class="avatar-img layer-b" id="avatar-b" alt="">
@@ -1387,6 +1406,8 @@
     <div class="stage" id="stage2" data-state="idle">
       <div class="stage-bg"><img id="bg-chat" alt=""></div>
       <div class="stage-tint"></div>
+      <video class="talk-video" id="talk-chat" muted loop playsinline preload="auto"
+             src="/static/avatar/talk_loop.mp4"></video>
       <div class="avatar-frame">
         <img class="avatar-img layer-a" id="avatar-c" alt="">
         <img class="avatar-img layer-b" id="avatar-d" alt="">
@@ -1758,7 +1779,19 @@
     var wasSpeaking = speaking;
     speaking = (state === "speaking");
     [stageEl, stageEl2].forEach(function (el) {
-      if (el) { el.setAttribute("data-state", state); }
+      if (!el) { return; }
+      el.setAttribute("data-state", state);
+      // 说话时播真实视频片段（嘴真的在动）；3D 就绪时由 CSS 让位给 3D
+      el.setAttribute("data-talking", speaking ? "1" : "0");
+      var v = el.querySelector(".talk-video");
+      if (v) {
+        if (speaking) {
+          var p = v.play();
+          if (p && p.catch) { p.catch(function () { }); }
+        } else {
+          try { v.pause(); v.currentTime = 0; } catch (e) { }
+        }
+      }
     });
     badgeState.textContent = STATE_CN[state] || state;
     var waveEl = $("voice-wave");
