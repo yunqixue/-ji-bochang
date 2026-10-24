@@ -70,9 +70,55 @@ def _pitch_str(pitch_shift: float) -> str:
 
 
 async def _edge_save(text: str, out_path: str, rate: str, pitch: str) -> None:
+    """流式合成：边收音频边记 WordBoundary（逐词时间戳）。
+
+    词时间戳存成 <同名>.words.json 副文件，供前端 3D 形象做口型同步。
+    edge-tts 的 offset/duration 单位是 100 纳秒，这里转成毫秒。
+    记词失败不影响音频本身（口型会退回音量驱动）。
+    """
+    import json
+
     import edge_tts
-    communicate = edge_tts.Communicate(text, VOICE, rate=rate, pitch=pitch)
-    await communicate.save(out_path)
+    # boundary="WordBoundary"：让服务端回传逐词时间戳（默认只回句级）
+    communicate = edge_tts.Communicate(text, VOICE, rate=rate, pitch=pitch, boundary="WordBoundary")
+    words, wtimes, wdurations = [], [], []
+    with open(out_path, "wb") as f:
+        async for chunk in communicate.stream():
+            ctype = chunk.get("type")
+            if ctype == "audio":
+                f.write(chunk["data"])
+            elif ctype == "WordBoundary":
+                words.append(chunk.get("text", ""))
+                wtimes.append(int(round(chunk.get("offset", 0) / 10000)))
+                wdurations.append(int(round(chunk.get("duration", 0) / 10000)))
+    if words:
+        side = os.path.splitext(out_path)[0] + ".words.json"
+        try:
+            with open(side, "w", encoding="utf-8") as f:
+                json.dump(
+                    {"words": words, "wtimes": wtimes, "wdurations": wdurations},
+                    f, ensure_ascii=False,
+                )
+        except OSError:
+            pass
+
+
+def timings_for(audio_url: Optional[str]) -> Optional[dict]:
+    """按音频 URL 查逐词时间戳（3D 口型同步用）。没有就返回 None。"""
+    if not audio_url:
+        return None
+    name = os.path.basename(audio_url)
+    base, _ = os.path.splitext(name)
+    side = os.path.join(OUT_DIR, base + ".words.json")
+    try:
+        import json
+        with open(side, encoding="utf-8") as f:
+            data = json.load(f)
+        if data.get("words"):
+            return data
+    except Exception:
+        pass
+    return None
 
 
 # 复用同一个事件循环。

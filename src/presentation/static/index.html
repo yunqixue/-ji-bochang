@@ -4,6 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>小雨 · 情感陪伴</title>
+<!-- 3D 形象（TalkingHead + Three.js，全部本地 vendor，断网可用）。
+     加载失败会自动沿用原来的 2D 立绘，页面不受影响。 -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "/static/vendor/three.module.js",
+    "three/addons/": "/static/vendor/three/addons/"
+  }
+}
+</script>
 <!--
   聊天 / 通话页面（C 的产出）。对应 docs/接口契约.md v0.3。
 
@@ -1149,6 +1159,20 @@
   html[data-scene="1"] .avatar-frame {
     box-shadow: 0 24px 60px -20px rgba(0, 0, 0, .75), 0 0 0 1px rgba(255, 255, 255, .16);
   }
+
+  /* ============ 3D 形象挂载点 ============
+     3D 就绪后给 .stage 打 data-avatar3d="1"：显示 3D 画布、藏掉 2D 立绘。
+     初始化失败则永远不打这个属性，页面保持 2D 原样。 */
+  .avatar3d-mount {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: none;
+  }
+  .stage[data-avatar3d="1"] .avatar3d-mount { display: block; }
+  .stage[data-avatar3d="1"] .avatar-frame { visibility: hidden; }
+  .avatar3d-mount .avatar3d-canvas,
+  .avatar3d-mount canvas { width: 100%; height: 100%; display: block; }
 </style>
 </head>
 <body>
@@ -1176,6 +1200,13 @@
       <option value="park">湖上划船</option>
       <option value="night">水面倒影</option>
       <option value="study">山间公路</option>
+      <option value="scifi">科幻·机甲</option>
+      <option value="scene1">风景 1</option>
+      <option value="scene2">风景 2</option>
+      <option value="scene3">风景 3</option>
+      <option value="scene4">风景 4</option>
+      <option value="scene5">风景 5</option>
+      <option value="scene6">风景 6</option>
     </select>
     <button class="chip" id="btn-to-chat" type="button">文字</button>
     <button class="chip danger" id="btn-hangup" type="button">挂断</button>
@@ -1193,6 +1224,7 @@
       </div>
       <div class="stage-flash" id="flash-call"></div>
     </div>
+    <div class="avatar3d-mount" id="avatar3d-call"></div>
 
     <div class="pip" id="pip" data-on="0">
       <video id="self-video" autoplay muted playsinline></video>
@@ -1249,6 +1281,13 @@
         <option value="park">湖上划船</option>
         <option value="night">水面倒影</option>
         <option value="study">山间公路</option>
+        <option value="scifi">科幻·机甲</option>
+        <option value="scene1">风景 1</option>
+        <option value="scene2">风景 2</option>
+        <option value="scene3">风景 3</option>
+        <option value="scene4">风景 4</option>
+        <option value="scene5">风景 5</option>
+        <option value="scene6">风景 6</option>
       </select>
       <button class="chip" id="btn-to-call" type="button">回到通话</button>
       <button class="chip" id="btn-reset" type="button">重开一轮</button>
@@ -1268,6 +1307,7 @@
         </div>
         <div class="stage-flash" id="flash-chat"></div>
       </div>
+      <div class="avatar3d-mount" id="avatar3d-chat"></div>
     </div>
 
     <div class="badges">
@@ -1338,6 +1378,10 @@
 
   function $(id) { return document.getElementById(id); }
 
+  // 3D 形象桥（页面底部的 module 脚本初始化成功后挂上 window.avatar3d）。
+  // 没就绪时所有调用都是空操作，页面行为和原来 2D 立绘完全一致。
+  function th3d() { return window.avatar3d || null; }
+
   var THEME_KEY = "emotion_agent_theme";
   var THEMES = ["sweet", "cream", "cyber", "nature", "night"];
 
@@ -1375,6 +1419,8 @@
     try { localStorage.setItem(MODE_KEY, currentView); } catch (e) { }
     if (currentView === "chat") { scrollBottom(); }
     if (currentView === "call" && !asrReady) { /* 通话里仍可打字，不拦 */ }
+    var t = th3d();
+    if (t) { t.attach(currentView); }   // 3D 画布搬到当前视图的舞台里
   }
 
   function initialView() {
@@ -1589,6 +1635,9 @@
     var info = EMOTION[label];
     if (badgeEmotion) { badgeEmotion.textContent = "她的表情 · " + info.cn; }
 
+    var t = th3d();
+    if (t) { t.mood(label); }           // 3D：切换情绪（微表情基调）
+
     ["call", "chat"].forEach(function (key) {
       var layer = layers[key];
       if (layer.expr === label) { return; }
@@ -1691,14 +1740,31 @@
 
   function stopAudio() {
     stopVoiceMeter();
+    var t = th3d();
+    if (t) { t.stop(); }
     if (currentNode) {
       try { currentNode.pause(); } catch (e) { }
       currentNode = null;
     }
   }
 
-  function playAudio(url) {
+  function playAudio(url, lipsync) {
     if (!url) { setStageState("idle"); return; }
+    // 3D 就绪时：音频交给 TalkingHead 播放并驱动口型；失败返回 false 再走原 2D 路径
+    var t = th3d();
+    if (t && t.ready) {
+      setStageState("speaking");
+      t.speak(url, lipsync || null, function () {
+        setStageState("idle");
+      }).then(function (handled) {
+        if (!handled) { play2dAudio(url); }
+      });
+      return;
+    }
+    play2dAudio(url);
+  }
+
+  function play2dAudio(url) {
     stopAudio();
     var audio = new Audio(url);
     currentNode = audio;
@@ -1797,7 +1863,7 @@
         setSubtitle(replyText, true);
 
         var audioUrl = data.audio_url || "";
-        if (audioUrl) { playAudio(audioUrl); } else { setStageState("idle"); }
+        if (audioUrl) { playAudio(audioUrl, data.lipsync || null); } else { setStageState("idle"); }
 
         addRow("them", replyText, buildMeta(data, avatar.state || ""));
         hint(audioUrl ? "语音已生成，正在播放。" : "这条只显示了文字（TTS 没出声音）。");
@@ -1880,6 +1946,8 @@
 
         recorder.start();
         setTalkingUI(true);
+        var t = th3d();
+        if (t) { t.listen(stream); }    // 3D：听用户说话时做出反应（注视/点头）
         hint("正在听……说完再点一下（最长 30 秒）。");
 
         recordTimer = setTimeout(function () {
@@ -1906,6 +1974,8 @@
     }
     recorder = null;
     setTalkingUI(false);
+    var t = th3d();
+    if (t) { t.stopListen(); }
   }
 
   function toggleRecording() {
@@ -2261,6 +2331,203 @@
     init();
   }
 })();
+</script>
+
+<!-- ===================== 3D 形象引擎（TalkingHead） =====================
+     就绪条件（缺一不可，缺了就悄悄沿用 2D 立绘，不影响任何功能）：
+       · 浏览器支持 WebGL2
+       · /static/avatar/xiaoyu.glb 存在（Ready Player Me 全身模型，
+         下载时 URL 要带 morphTargets=ARKit,Oculus Visemes）
+     能力：真实口型同步（edge-tts 逐词时间戳 + lipsync-zh 视素映射）、
+           眨眼/呼吸/头部微动/眉毛小动作（TalkingHead 情绪引擎自带）、
+           情绪基调（setMood）、听用户说话时的注视反应（startListening）。
+-->
+<script type="module">
+import { TalkingHead } from '/static/vendor/talkinghead.mjs';
+
+// 契约情绪标签 → TalkingHead 情绪（它没有 anxious/surprised/empathic，就近映射）
+const MOOD_MAP = {
+  neutral: 'neutral', happy: 'happy', sad: 'sad',
+  anxious: 'fear', angry: 'angry', surprised: 'happy', empathic: 'love'
+};
+
+const GLB_URL = '/static/avatar/xiaoyu.glb';
+
+let head = null;          // TalkingHead 实例
+let ready = false;        // 3D 是否可用（false 时主脚本全部走 2D 原逻辑）
+let pendingMood = 'neutral';
+let speakPoll = null;     // 播完检测定时器
+let meterRAF = 0;         // 音量表 rAF
+let listenSrc = null;
+let listenAnalyser = null;
+
+function mountPoint(view) {
+  return document.getElementById(view === 'chat' ? 'avatar3d-chat' : 'avatar3d-call');
+}
+
+// 说话时把 TalkingHead 的语音分析器读数写进 --voice，
+// 让波形条和"随声音推近"动效在 3D 模式下也照常工作
+function startMeter() {
+  stopMeter();
+  const buf = new Uint8Array(256);
+  const root = document.documentElement;
+  (function tick() {
+    if (!head) { return; }
+    try {
+      head.audioAnalyzerNode.getByteTimeDomainData(buf);
+      let sum = 0;
+      for (let i = 0; i < buf.length; i++) { const d = (buf[i] - 128) / 128; sum += d * d; }
+      root.style.setProperty('--voice', Math.min(1, Math.sqrt(sum / buf.length) * 3.4).toFixed(3));
+    } catch (e) { /* 忽略单帧失败 */ }
+    meterRAF = requestAnimationFrame(tick);
+  })();
+}
+
+function stopMeter() {
+  if (meterRAF) { cancelAnimationFrame(meterRAF); meterRAF = 0; }
+  document.documentElement.style.setProperty('--voice', '0');
+}
+
+const api = {
+  get ready() { return ready; },
+
+  // 情绪切换（没就绪时先记下来，就绪后补应用）
+  mood(label) {
+    pendingMood = label;
+    if (ready && head) {
+      try { head.setMood(MOOD_MAP[label] || 'neutral'); } catch (e) { }
+    }
+  },
+
+  // 播放回复语音 + 口型同步。返回 Promise<boolean>：false = 没接住，调用方走 2D 兜底
+  async speak(url, lipsync, onended) {
+    if (!ready || !head) { return false; }
+    try {
+      const buf = await (await fetch(url)).arrayBuffer();
+      const audio = await head.audioCtx.decodeAudioData(buf);
+      if (head.audioCtx.state === 'suspended') {
+        try { await head.audioCtx.resume(); } catch (e) { }
+      }
+      const payload = { audio };
+      if (lipsync && lipsync.words && lipsync.words.length) {
+        payload.words = lipsync.words;
+        payload.wtimes = lipsync.wtimes;
+        payload.wdurations = lipsync.wdurations;
+      }
+      head.speakAudio(payload, { lipsyncLang: 'zh' });
+      startMeter();
+
+      // TalkingHead 没有对外暴露"播完"回调，轮询状态位判断
+      if (speakPoll) { clearInterval(speakPoll); }
+      let seen = false;
+      speakPoll = setInterval(function () {
+        const speaking = head.isSpeaking || head.isAudioPlaying;
+        if (speaking) { seen = true; }
+        if (seen && !speaking) {
+          clearInterval(speakPoll); speakPoll = null;
+          stopMeter();
+          if (onended) { onended(); }
+        }
+      }, 150);
+      return true;
+    } catch (e) {
+      console.warn('[avatar3d] speak 失败，回退 2D 播放：', e);
+      return false;
+    }
+  },
+
+  stop() {
+    if (speakPoll) { clearInterval(speakPoll); speakPoll = null; }
+    stopMeter();
+    if (ready && head) { try { head.stopSpeaking(); } catch (e) { } }
+  },
+
+  // 视图切换：把同一个 3D 画布搬到当前视图的挂载点
+  attach(view) {
+    if (!ready || !head) { return; }
+    const mp = mountPoint(view);
+    if (mp && head.nodeAvatar.parentNode !== mp) { mp.appendChild(head.nodeAvatar); }
+    try { head.onResize(); } catch (e) { }
+  },
+
+  // 用户录音时，把麦克风流接进来 —— 她会看向说话的人、有"在听"的头部反应
+  listen(stream) {
+    if (!ready || !head || !stream) { return; }
+    try {
+      if (!listenAnalyser) { listenAnalyser = head.audioCtx.createAnalyser(); }
+      listenSrc = head.audioCtx.createMediaStreamSource(stream);
+      listenSrc.connect(listenAnalyser);
+      head.startListening(listenAnalyser);
+    } catch (e) { }
+  },
+
+  stopListen() {
+    try { if (ready && head) { head.stopListening(); } } catch (e) { }
+    try { if (listenSrc) { listenSrc.disconnect(); } } catch (e) { }
+    listenSrc = null;
+  }
+};
+window.avatar3d = api;
+
+async function boot() {
+  try {
+    if (!window.WebGL2RenderingContext) { return; }
+
+    // 模型文件不存在就不启动（probe 用 HEAD，几秒就能出结果）
+    const probe = await fetch(GLB_URL, { method: 'HEAD' });
+    if (!probe.ok) {
+      console.info('[avatar3d] 未找到 3D 模型 ' + GLB_URL + '，沿用 2D 立绘。获取方法见 static/avatar/下载形象模型.md');
+      return;
+    }
+
+    const mount = document.createElement('div');
+    mount.className = 'avatar3d-canvas';
+    mountPoint(document.getElementById('view-chat').hidden ? 'call' : 'chat').appendChild(mount);
+
+    head = new TalkingHead(mount, {
+      lipsyncLang: 'zh',
+      lipsyncModules: ['zh'],          // 只加载本地中文模块（默认的 fi/en/lt 没打包进来）
+      cameraView: 'upper',             // 上半身取景，适合对话场景
+      cameraRotateEnable: false,
+      cameraZoomEnable: false,
+      modelPixelRatio: Math.min(2, window.devicePixelRatio || 1)
+    });
+
+    await head.showAvatar({
+      url: GLB_URL,
+      body: 'F',
+      avatarMood: 'neutral',
+      lipsyncLang: 'zh'
+    });
+    head.setView('upper');
+
+    // 等中文唇形模块动态 import 完成（最多 3 秒，等不到也能播，只是口型用不上视素）
+    const t0 = Date.now();
+    while (!head.lipsync['zh'] && Date.now() - t0 < 3000) {
+      await new Promise(function (r) { setTimeout(r, 100); });
+    }
+
+    // 浏览器自动播放策略：首次点击/按键时恢复音频上下文
+    ['pointerdown', 'keydown'].forEach(function (ev) {
+      document.addEventListener(ev, function () {
+        try { head.audioCtx.resume(); } catch (e) { }
+      }, { passive: true });
+    });
+
+    head.setMood(MOOD_MAP[pendingMood] || 'neutral');
+    ready = true;
+    document.querySelectorAll('.stage').forEach(function (s) { s.setAttribute('data-avatar3d', '1'); });
+    api.attach(document.getElementById('view-chat').hidden ? 'call' : 'chat');
+    console.info('[avatar3d] 3D 形象已就绪');
+  } catch (e) {
+    console.warn('[avatar3d] 初始化失败，沿用 2D 立绘：', e);
+    try { if (head) { head.stop(); } } catch (e2) { }
+    head = null;
+    ready = false;
+  }
+}
+
+boot();
 </script>
 </body>
 </html>
