@@ -1098,19 +1098,56 @@
        单独再写一条 .stage:hover .avatar-img{transform:...} 会把 --voice 的推近整条顶掉（实测发生过）。 */
   .stage { --gx: 0; --gy: 0; }
 
-  /* 真背景场景（bg_*.webp）：模糊要放轻，否则连"这是咖啡馆"都看不出来。
-     「自动」模式（跟着表情虚化）仍用上面那套 24px 重模糊，藏住"还是同一张照片"。 */
-  .stage[data-scene="1"] .stage-bg {
-    opacity: 1;
-    filter: blur(9px) saturate(1.05) brightness(.82);
-    transform: scale(1.04);
+  /* ===== 真背景场景（bg_*.webp）：整页铺满，而不是人物框后面糊一块 =====
+     用户反馈："我要的是整个页面换成那个场景，不是人物框里一堆黑黑的"。
+     所以场景模式下：
+       · body 直接铺场景图（固定不滚动，cover 铺满整个视口）
+       · .stage 面板变透明（去掉深色底、边框、阴影），场景从人物框外面一直连到里面
+       · .stage-bg 那条局部虚化层直接隐藏（不再需要）
+       · 全局压一层暗色渐变，保证顶部按钮和底部字幕在亮背景上也读得清
+     「自动」模式（还没选场景）完全不受影响，还是原来那套跟着表情虚化。 */
+  html[data-scene="1"] body {
+    background-image: var(--scene-img, none) !important;
+    background-size: cover;
+    background-position: 50% 42%;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
   }
-  .stage[data-scene="1"] .stage-tint {
-    background: radial-gradient(125% 90% at 50% 45%, transparent 58%, rgba(0, 0, 0, .42) 100%);
+  html[data-scene="1"] body::before {      /* 盖掉赛博主题的网格线，场景上不要再叠网格 */
+    opacity: .18;
   }
-  html[data-theme="cyber"] .stage[data-scene="1"] .stage-bg,
-  html[data-theme="night"] .stage[data-scene="1"] .stage-bg {
-    filter: blur(9px) saturate(1.05) brightness(.72);
+  html[data-scene="1"] body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(to bottom, rgba(4, 8, 14, .82) 0%, rgba(4, 8, 14, .26) 22%,
+                      rgba(4, 8, 14, .16) 55%, rgba(4, 8, 14, .86) 100%);
+  }
+  html[data-scene="1"] .stage {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+  }
+  /* 舞台外面那层面板（.stage-card）也有深色底和描边，场景模式下一起透掉，
+     否则整页背景会被它压暗、四周还留一圈圆角深色边框 */
+  html[data-scene="1"] .stage-card {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+  }
+  html[data-scene="1"] .view-call,
+  html[data-scene="1"] .view-chat { background: transparent !important; }
+  html[data-scene="1"] .stage::before { opacity: 0; }   /* 原来那团顶部暖光 */
+  html[data-scene="1"] .stage-bg { display: none; }     /* 局部虚化层隐藏 */
+  html[data-scene="1"] .stage-tint {
+    background: radial-gradient(120% 88% at 50% 44%, transparent 62%, rgba(0, 0, 0, .38) 100%);
+  }
+  /* 人物画面卡在场景上要立得住：加一圈薄边和投影 */
+  html[data-scene="1"] .avatar-frame {
+    box-shadow: 0 24px 60px -20px rgba(0, 0, 0, .75), 0 0 0 1px rgba(255, 255, 255, .16);
   }
 </style>
 </head>
@@ -1134,11 +1171,11 @@
     </select>
     <select class="chip" id="bg-sel" title="换背景场景">
       <option value="">背景·自动</option>
-      <option value="home">客厅</option>
-      <option value="cafe">咖啡馆</option>
-      <option value="park">公园</option>
-      <option value="night">夜晚</option>
-      <option value="study">书房</option>
+      <option value="home">草地阳光</option>
+      <option value="cafe">林间小路</option>
+      <option value="park">湖上划船</option>
+      <option value="night">水面倒影</option>
+      <option value="study">山间公路</option>
     </select>
     <button class="chip" id="btn-to-chat" type="button">文字</button>
     <button class="chip danger" id="btn-hangup" type="button">挂断</button>
@@ -1207,11 +1244,11 @@
       </select>
       <select class="chip" id="bg-sel2" title="换背景场景">
         <option value="">背景·自动</option>
-        <option value="home">客厅</option>
-        <option value="cafe">咖啡馆</option>
-        <option value="park">公园</option>
-        <option value="night">夜晚</option>
-        <option value="study">书房</option>
+        <option value="home">草地阳光</option>
+        <option value="cafe">林间小路</option>
+        <option value="park">湖上划船</option>
+        <option value="night">水面倒影</option>
+        <option value="study">山间公路</option>
       </select>
       <button class="chip" id="btn-to-call" type="button">回到通话</button>
       <button class="chip" id="btn-reset" type="button">重开一轮</button>
@@ -2149,10 +2186,10 @@
       sceneLocked = true;
       ["call", "chat"].forEach(function (k) { if (layers[k].bg) { layers[k].bg.src = url; } });
       ["bg-sel", "bg-sel2"].forEach(function (id) { var s = $(id); if (s) { s.value = name; } });
-      // ★ 真背景图要认得出来 —— 用同一套 24px 重模糊会把它糊成一片色块，
-      //   那就失去"换生活场景"的意义了。所以场景模式单独放宽模糊、提亮，
-      //   「自动」（跟着表情虚化）时仍用原来的重模糊，藏住"还是同一张照片"。
-      [stageEl, stageEl2].forEach(function (el) { if (el) { el.setAttribute("data-scene", "1"); } });
+      // ★ 场景要铺满**整个页面**，不是糊在人物框后面一块：
+      //   把图写进 html 上的 CSS 变量，由 CSS 铺到 body 上；舞台面板同时变透明。
+      document.documentElement.style.setProperty("--scene-img", "url(" + url + ")");
+      document.documentElement.setAttribute("data-scene", "1");
     };
     probe.onerror = function () { sceneLocked = false; };
     probe.src = url;
@@ -2166,7 +2203,8 @@
       if (l.bg && l.expr) { l.bg.src = "/avatar/expr_" + l.expr + ".webp"; }
     });
     ["bg-sel", "bg-sel2"].forEach(function (id) { var s = $(id); if (s) { s.value = ""; } });
-    [stageEl, stageEl2].forEach(function (el) { if (el) { el.setAttribute("data-scene", "0"); } });
+    document.documentElement.removeAttribute("data-scene");
+    document.documentElement.style.removeProperty("--scene-img");
   }
 
   function init() {
