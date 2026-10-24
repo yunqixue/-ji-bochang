@@ -442,13 +442,28 @@ def _demo_lookup(text: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-def _build_messages(mem: Dict[str, Any], text: str) -> List[Dict[str, str]]:
+def _sim(a: str, b: str) -> float:
+    """两句归一化后的相似度（0~1）。用来发现"对方又说了同一句 / 自己又回了同一句"。"""
+    a, b = _norm_text(a), _norm_text(b)
+    if not a or not b:
+        return 0.0
+    if a == b:
+        return 1.0
+    return difflib.SequenceMatcher(None, a, b).ratio()
+
+
+def _build_messages(mem: Dict[str, Any], text: str, repeat_input: bool = False,
+                    repeat_streak: int = 0, avoid_reply: str = "") -> List[Dict[str, str]]:
     """组装消息。
 
     ★ 关键坑：不能把历史回复当成 assistant 消息塞回去。
       因为历史里存的是纯文本回复，模型看到"自己上一轮输出的是纯文本"，
       就会模仿纯文本、不再输出 JSON —— 表现为「第 1 轮正常，第 2 轮开始悄悄降级成 mock」。
       所以历史一律放进 system，并明确禁止模仿其格式。
+
+    repeat_input:  对方这次说的和上一句几乎一样。
+    repeat_streak: 连续重复了几次（1 = 刚重复一次，2+ = 已经重复好几遍）。
+    avoid_reply:   上一次生成的回复和前面撞了，重试时要显式避开它。
     """
     parts: List[str] = [_system_prompt()]
 
@@ -460,6 +475,34 @@ def _build_messages(mem: Dict[str, Any], text: str) -> List[Dict[str, str]]:
         for turn in mem["turns"][-MAX_TURNS:]:
             lines.append(f"用户：{turn['user']}\n你：{turn['assistant']}")
         parts.append("[最近的对话，仅作上下文参考]\n" + "\n".join(lines))
+
+    if repeat_input and repeat_streak <= 1:
+        # 刚重复一次：点出来是自然的，像真人会说"你刚说过这句"
+        parts.append(
+            "★ 对方这次把同一句话又说了一遍。"
+            "不要再用上次那套回应（不许重复自己说过的话），"
+            "可以温和地点出来（「你刚说过这句，是不是还在想这个呀」），"
+            "然后换一个更具体的方向往下问。"
+        )
+    elif repeat_input:
+        # 连续重复好几遍：再点出来就像在指责了，必须换个说法继续陪着
+        parts.append(
+            f"★ 同一句话对方已经连着说了 {repeat_streak + 1} 遍。"
+            "**不要再提「你刚说过」「你说了好几遍」这类话** —— 说多了像在指责。"
+            "也不许再追问同一件事的细节（已经问过两轮了）。"
+            "这一轮这样做：先用一句很短的话表示你还在听（比如「嗯，我听着呢」），"
+            "然后二选一 —— 要么给一个**新的角度**接着这件事（比如「是不是到现在还没缓过来」），"
+            "要么把话头**轻轻挪一点**（问问 ta 现在在干嘛、吃饭了没、累不累）。"
+            "★ 另外：**不许再用「糯米/奶奶」这类你自己的小事来转移话题**，"
+            "同一个招连续用会显得你在敷衍。你自己的小事整段对话里最多提一次；"
+            "**开口那句也不要每轮都一样**（别连着几轮都用「嗯，我听着呢」开头的同一句）。"
+        )
+
+    if avoid_reply:
+        parts.append(
+            f"★ 你刚才想说的「{avoid_reply}」和前面已经说过的话太像了，"
+            "换一种完全不同的说法，或者问一个不一样的问题。"
+        )
 
     parts.append(
         "注意：上面「你：」后面的内容是给人看的纯文本，不是输出格式示例。"
@@ -518,36 +561,66 @@ def respond(
     offline = os.getenv("DEMO_FALLBACK") == "1"
     client = None if offline else _build_client()
 
+    repeat_input = False
+    repeat_streak = 0
+    repeat_fixed = False
+    repeat_score = 0.0
     if client is not None and text:
-        messages = _build_messages(mem, text)
+        # 对方把同一句话又（又又）说了一遍？
+        for turn in reversed(mem.get("turns") or []):
+            if _sim(turn["user"], text) >= 0.8:
+                repeat_streak += 1
+            else:
+                break
+        repeat_input = repeat_streak >= 1
+        if repeat_input:
+            print(f"[LLM] 同一句已连说 {repeat_streak + 1} 遍，本轮要求换方向")
+        previous_replies = [t["assistant"] for t in (mem.get("turns") or [])][-3:]
 
-        try:
-            data: Dict[str, Any] = {}
-            last_error = ""
-            # 失败一次就降级成 mock 会让回复突然"变傻"，演示时很难看。
-            # 所以先重试一次，并把失败原因记录下来（debug + 日志）。
+        def _ask(avoid: str) -> Dict[str, Any]:
+            """问一次模型；网络/格式失败重试一次。avoid 非空时要求避开那句话。"""
+            msgs = _build_messages(mem, text, repeat_input=repeat_input,
+                                   repeat_streak=repeat_streak, avoid_reply=avoid)
+            err = ""
             for attempt in range(2):
                 try:
                     resp = client.chat.completions.create(
                         model=os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
-                        messages=messages,
+                        messages=msgs,
                         # 演示时可以调低（0.3）让回复更稳定、更容易命中 TTS 缓存
                         temperature=float(os.getenv("DEEPSEEK_TEMPERATURE", "0.8")),
                         max_tokens=200,
                         response_format={"type": "json_object"},
                     )
-                    data = _parse_json(resp.choices[0].message.content or "") or {}
-                    if data.get("reply"):
-                        break
-                    last_error = "模型返回里没有 reply 字段"
+                    d = _parse_json(resp.choices[0].message.content or "") or {}
+                    if d.get("reply"):
+                        return d
+                    err = "模型返回里没有 reply 字段"
                 except Exception as exc:                 # noqa: BLE001
-                    last_error = f"{type(exc).__name__}: {exc}"[:160]
+                    err = f"{type(exc).__name__}: {exc}"[:160]
                     if attempt == 0:
                         time.sleep(0.3)
-                    continue
+            raise ValueError(err or "模型没有返回有效内容")
 
-            if not data.get("reply"):
-                raise ValueError(last_error or "模型没有返回有效内容")
+        try:
+            data: Dict[str, Any] = _ask("")
+            first_reply = str(data.get("reply", "")).strip()
+
+            # ★ 防重复：实测用户把同一句话连说两遍时，模型会一字不差地再回一遍，
+            #   看起来像复读机。这里检测"和前面 3 句里任何一句几乎一样"，命中就带着
+            #   "换种说法"再问一次，取更像样的那个。只多一次调用，且只在撞车时发生。
+            repeat_score = max([_sim(first_reply, p) for p in previous_replies] or [0.0])
+            if repeat_score >= 0.85:
+                try:
+                    data2 = _ask(first_reply)
+                    second_reply = str(data2.get("reply", "")).strip()
+                    if second_reply and _sim(second_reply, first_reply) < repeat_score:
+                        data = data2
+                        repeat_fixed = True
+                        repeat_score = max([_sim(second_reply, p) for p in previous_replies] or [0.0])
+                        print(f"[LLM] 检测到自己要重复（{repeat_score:.2f}），已换一种说法")
+                except Exception as exc:                 # noqa: BLE001
+                    print(f"[LLM] 防重复重试失败，沿用原回复：{type(exc).__name__}: {exc}")
 
             emotion = str(data.get("emotion", "neutral")).strip().lower()
             reply = str(data.get("reply", "")).strip()
@@ -635,6 +708,10 @@ def respond(
             "fallback_source": fallback_source,
             # 命中预置缓存时，直接把上次合成好的音频给前端用，省一次在线合成
             "cached_audio_url": cached_audio,
+            # 防复读：这一轮对方是否重复了上一句 / 是否检测到自己在重复并救回来了
+            "repeat_input": repeat_input,
+            "repeat_fixed": repeat_fixed,
+            "repeat_score": round(repeat_score, 2),
         },
     )
     if target == "happy":
