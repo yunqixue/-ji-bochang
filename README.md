@@ -19,8 +19,10 @@ python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple faster-whisper
 #    装完还要下模型（约150MB）：
 python experiments/download_asr_model.py
 
-# 3. 把 DeepSeek Key 粘进项目根目录的 api_key.txt（已 gitignore，不会进仓库）
-#    没有 Key 也能跑，只是回复会走内置 mock 模板
+# 3. 配 Key（★ 必须做，否则回复是固定模板，一听就是机器）
+双击 配置Key.cmd          # 自动打开 DeepSeek 页面 + 记事本，粘进去后会真的调一次模型告诉你行不行
+#    也可以手动：把 Key 粘进项目根目录的 api_key.txt，然后 python experiments/check_key.py
+#    队友怎么配、怎么验证：见 docs/队友怎么试用.md
 
 # 4. 启动（都是双击，不用敲命令）
 双击 自检.cmd            # 先看一眼：缺什么、语音到底能不能出声（30 秒出结果）
@@ -94,6 +96,7 @@ python experiments/download_asr_model.py
 ├── run.cmd                      双击：启动正常模式（端口 8000）
 ├── 启动_离线保险.cmd               双击：启动保险模式（端口 8001，可与 8000 并存）
 ├── 自检.cmd                      双击：环境自检，并把结果翻译成"该走哪个模式"
+├── 配置Key.cmd                   双击：配 DeepSeek Key，并真的调一次模型验证
 ├── start-demo.cmd               双击：起服务 + 开临时公网隧道（给不在场的人看）
 ├── push.cmd / pull.cmd          双击：上传 / 下载
 ├── app.py                       后端入口，把三层串起来
