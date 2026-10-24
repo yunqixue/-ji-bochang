@@ -1097,6 +1097,21 @@
      ★ 这里只声明变量默认值；平移与"随声音推近"合在上面那一条 .avatar-img 的 transform 里 ——
        单独再写一条 .stage:hover .avatar-img{transform:...} 会把 --voice 的推近整条顶掉（实测发生过）。 */
   .stage { --gx: 0; --gy: 0; }
+
+  /* 真背景场景（bg_*.webp）：模糊要放轻，否则连"这是咖啡馆"都看不出来。
+     「自动」模式（跟着表情虚化）仍用上面那套 24px 重模糊，藏住"还是同一张照片"。 */
+  .stage[data-scene="1"] .stage-bg {
+    opacity: 1;
+    filter: blur(9px) saturate(1.05) brightness(.82);
+    transform: scale(1.04);
+  }
+  .stage[data-scene="1"] .stage-tint {
+    background: radial-gradient(125% 90% at 50% 45%, transparent 58%, rgba(0, 0, 0, .42) 100%);
+  }
+  html[data-theme="cyber"] .stage[data-scene="1"] .stage-bg,
+  html[data-theme="night"] .stage[data-scene="1"] .stage-bg {
+    filter: blur(9px) saturate(1.05) brightness(.72);
+  }
 </style>
 </head>
 <body>
@@ -2134,6 +2149,10 @@
       sceneLocked = true;
       ["call", "chat"].forEach(function (k) { if (layers[k].bg) { layers[k].bg.src = url; } });
       ["bg-sel", "bg-sel2"].forEach(function (id) { var s = $(id); if (s) { s.value = name; } });
+      // ★ 真背景图要认得出来 —— 用同一套 24px 重模糊会把它糊成一片色块，
+      //   那就失去"换生活场景"的意义了。所以场景模式单独放宽模糊、提亮，
+      //   「自动」（跟着表情虚化）时仍用原来的重模糊，藏住"还是同一张照片"。
+      [stageEl, stageEl2].forEach(function (el) { if (el) { el.setAttribute("data-scene", "1"); } });
     };
     probe.onerror = function () { sceneLocked = false; };
     probe.src = url;
@@ -2147,6 +2166,7 @@
       if (l.bg && l.expr) { l.bg.src = "/avatar/expr_" + l.expr + ".webp"; }
     });
     ["bg-sel", "bg-sel2"].forEach(function (id) { var s = $(id); if (s) { s.value = ""; } });
+    [stageEl, stageEl2].forEach(function (el) { if (el) { el.setAttribute("data-scene", "0"); } });
   }
 
   function init() {
