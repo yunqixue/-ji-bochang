@@ -114,6 +114,33 @@ def check_env_vars() -> None:
     add(OK, "ASR 模型尺寸", model)
 
 
+def check_tts_live() -> None:
+    """真跑一次语音合成，而不是只检查 import。
+
+    演示当天最容易翻车的就是语音：edge-tts 连微软服务器，国内约 1/5 失败；
+    失败时会退到 Windows SAPI 离线合成（音色差但能出声）。
+    只检查"库装没装"看不出来，所以这里真的生成一段。
+    """
+    try:
+        sys.path.insert(0, REPO_ROOT)
+        from src.presentation import tts  # noqa: PLC0415
+    except Exception:
+        add(BAD, "语音合成实测", "无法导入 src.presentation.tts")
+        return
+
+    if not tts.available():
+        add(BAD, "语音合成实测", "没有可用的 TTS 后端")
+        return
+
+    url = tts.synthesize("环境自检，测试一下语音能不能出来。", 1.0, 0.0, retries=2)
+    if not url:
+        add(BAD, "语音合成实测", "合成失败：在线和离线兜底都没成功（演示时会没声音）")
+    elif url.endswith(".mp3"):
+        add(OK, "语音合成实测", "在线合成成功（音色好）")
+    else:
+        add(WARN, "语音合成实测", "在线失败、已用离线兜底（音色差但能出声）")
+
+
 def check_service() -> None:
     """检查端口是否被占用（服务是否已经在跑）。"""
     import socket
@@ -145,6 +172,7 @@ def main() -> int:
     check_env_vars()
 
     check_asr_model()
+    check_tts_live()
     check_files()
     check_service()
 
