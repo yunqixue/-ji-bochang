@@ -1775,6 +1775,15 @@
     });
   }
 
+  // 说话片段：按当前表情挑不同视频，没配的情绪退回通用片段
+  var TALK_VIDEO = {
+    happy: "talk_happy.mp4",
+    empathic: "talk_empathic.mp4",
+    sad: "talk_sad.mp4",
+    neutral: "talk_neutral.mp4",
+    surprised: "talk_surprised.mp4"
+  };
+
   function setStageState(state) {
     var wasSpeaking = speaking;
     speaking = (state === "speaking");
@@ -1786,6 +1795,14 @@
       var v = el.querySelector(".talk-video");
       if (v) {
         if (speaking) {
+          // 按当前表情选片段：高兴时用笑的，共情时用抱抱那段……
+          var curLabel = (layers.call && layers.call.expr) || "neutral";
+          var file = TALK_VIDEO[curLabel] || "talk_loop.mp4";
+          var want = "/static/avatar/" + file;
+          if (v.getAttribute("data-src") !== want) {
+            v.setAttribute("data-src", want);
+            v.src = want;
+          }
           var p = v.play();
           if (p && p.catch) { p.catch(function () { }); }
         } else {
