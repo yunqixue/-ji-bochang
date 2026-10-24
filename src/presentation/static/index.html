@@ -1144,10 +1144,13 @@
       linear-gradient(to bottom, rgba(4, 8, 14, .82) 0%, rgba(4, 8, 14, .26) 22%,
                       rgba(4, 8, 14, .16) 55%, rgba(4, 8, 14, .86) 100%);
   }
+  /* ★ 这里的 !important 是必需的：各主题都有自己的 `html[data-theme="x"] .stage { background: … }`，
+     选择器权重和 `html[data-scene="1"] .stage` 一样，谁写在后面谁赢。C 后来新增的 light/ease 主题
+     就写在后面，结果整块白底把场景图盖住了（实测截图里中央一大片发白）。 */
   html[data-scene="1"] .stage {
-    background: transparent;
-    border-color: transparent;
-    box-shadow: none;
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
   }
   /* 舞台外面那层面板（.stage-card）也有深色底和描边，场景模式下一起透掉，
      否则整页背景会被它压暗、四周还留一圈圆角深色边框 */
@@ -1158,8 +1161,8 @@
   }
   html[data-scene="1"] .view-call,
   html[data-scene="1"] .view-chat { background: transparent !important; }
-  html[data-scene="1"] .stage::before { opacity: 0; }   /* 原来那团顶部暖光 */
-  html[data-scene="1"] .stage-bg { display: none; }     /* 局部虚化层隐藏 */
+  html[data-scene="1"] .stage::before { opacity: 0 !important; }   /* 主题里那团顶部暖光 */
+  html[data-scene="1"] .stage-bg { display: none !important; }     /* 局部虚化层隐藏 */
   html[data-scene="1"] .stage-tint {
     background: radial-gradient(120% 88% at 50% 44%, transparent 62%, rgba(0, 0, 0, .38) 100%);
   }
@@ -1671,7 +1674,17 @@
         if (token !== layer.token) { return; }      // 已有更新的请求，丢弃这次
         if (trying !== base) { talkKnown[label] = true; }
         el.src = trying;
-        frame.setAttribute("data-layer", target);
+        // ★ 第一次显示这张图时不要淡入：`.avatar-img` 有 200ms opacity 过渡，
+        //   页面刚打开时它从 0 慢慢淡到 1，中途一瞥/截图就是"人物半透明、背景透出来"。
+        //   换表情时才需要交叉淡入；首帧直接出图更像"她本来就在那儿"。
+        if (!layer.ok) {
+          el.style.transition = "none";
+          frame.setAttribute("data-layer", target);
+          void el.offsetWidth;
+          requestAnimationFrame(function () { el.style.transition = ""; });
+        } else {
+          frame.setAttribute("data-layer", target);
+        }
         layer.show = target;
         layer.ok = true;
         layer.fallback.style.visibility = "hidden";
