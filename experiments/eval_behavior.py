@@ -93,6 +93,26 @@ CASES = [
         "why": "被夸不许卖萌、不许客套，保持认真听",
         "max_len": 55,
     },
+    {
+        "id": "share",
+        "ask": "我想让你分享一些你觉得好玩的经历",
+        "must_contain_any": [],
+        "must_not_contain": ADULT_ADVICE_MARKERS + ["作为"],
+        "why": "被要求分享时必须真的讲一段具体的事，不能一句话概括完就反问（会被当成敷衍）",
+        # 这条反过来：要求够长、讲得够具体。用户实测抱怨过"回得太短、像在敷衍"
+        "min_len": 55,
+        "max_len": 200,
+        "attempts": 2,
+    },
+    {
+        "id": "daily",
+        "ask": "你今天干嘛了呀",
+        "must_contain_any": [],
+        "must_not_contain": ADULT_ADVICE_MARKERS,
+        "why": "被问今天干嘛了，要讲一件具体小事，不能只回一句反问",
+        "min_len": 30,
+        "max_len": 120,
+    },
 ]
 
 
@@ -130,8 +150,9 @@ def _check(case: dict, reply: str) -> list[str]:
         limit = case.get("max_len", 60)
         if len(reply) > limit:
             problems.append(f"太长：{len(reply)} 字 > {limit}（语音会拖沓）")
-    if len(reply) < 6:
-        problems.append(f"太短：{len(reply)} 字，像没听懂")
+        floor = case.get("min_len", 6)
+        if len(reply) < floor:
+            problems.append(f"太短：{len(reply)} 字 < {floor}（该多说的时候不能一句话打发）")
     return problems
 
 
