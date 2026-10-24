@@ -23,6 +23,18 @@ VOICE = os.getenv("TTS_VOICE", "zh-CN-XiaoyiNeural")   # 备选：zh-CN-Xiaoxiao
 # edge-tts 的音高单位是 Hz，契约里用的是半音；经验换算 1 半音 ≈ 15Hz
 HZ_PER_SEMITONE = 15.0
 
+# 基线音高：在情绪偏移之外整体抬高一点，让音色更接近小孩。
+# 微软没有开放中文童声（实测可用女声只有 Xiaoxiao 成人 / Xiaoyi 少女 + 两个方言），
+# 所以"更像小女孩"只能靠这个基线 + 语速，见 experiments/voicetest/ 的试听样本。
+# 想还原成原来的声音：设环境变量 TTS_PITCH_BASE=0，或把这行默认值改回 0。
+PITCH_BASE_HZ = float(os.getenv("TTS_PITCH_BASE", "20"))
+
+
+def effective_pitch_hz(pitch_shift: float) -> float:
+    """半音偏移 → 实际给 edge-tts 的 Hz（含基线抬升）。"""
+    hz = PITCH_BASE_HZ + float(pitch_shift) * HZ_PER_SEMITONE
+    return max(-50.0, min(80.0, hz))
+
 
 def available() -> bool:
     try:
@@ -41,6 +53,8 @@ def _ensure_dir() -> None:
 
 
 def _cache_name(text: str, rate: float, pitch: float, suffix: str) -> str:
+    """缓存名带**实际音高 Hz**（不是半音偏移），这样改了基线就会生成新文件，
+    不会错误地复用到旧音高的音频。"""
     raw = f"{VOICE}|{text}|{rate:.2f}|{pitch:.1f}".encode("utf-8")
     return hashlib.md5(raw).hexdigest()[:12] + suffix
 
@@ -52,9 +66,7 @@ def _rate_str(speech_rate: float) -> str:
 
 
 def _pitch_str(pitch_shift: float) -> str:
-    hz = float(pitch_shift) * HZ_PER_SEMITONE
-    hz = max(-50.0, min(50.0, hz))
-    return f"{hz:+.0f}Hz"
+    return f"{effective_pitch_hz(pitch_shift):+.0f}Hz"
 
 
 async def _edge_save(text: str, out_path: str, rate: str, pitch: str) -> None:
@@ -212,7 +224,8 @@ def synthesize(text: str, speech_rate: float = 1.0, pitch_shift: float = 0.0,
         return None
     _ensure_dir()
 
-    mp3_name = _cache_name(text, speech_rate, pitch_shift, ".mp3")
+    pitch_hz = effective_pitch_hz(pitch_shift)     # 缓存名用实际 Hz：改了基线会生成新文件，不会复用旧音高的音频
+    mp3_name = _cache_name(text, speech_rate, pitch_hz, ".mp3")
     mp3_path = os.path.join(OUT_DIR, mp3_name)
     if os.path.exists(mp3_path) and os.path.getsize(mp3_path) > 0:
         _LAST_ERROR = ""
@@ -240,7 +253,7 @@ def synthesize(text: str, speech_rate: float = 1.0, pitch_shift: float = 0.0,
 
     # 兜底 1：Windows 自带 SAPI（离线）
     try:
-        wav_name = _cache_name(text, speech_rate, pitch_shift, "_sapi.wav")
+        wav_name = _cache_name(text, speech_rate, pitch_hz, "_sapi.wav")
         wav_path = os.path.join(OUT_DIR, wav_name)
         if os.path.exists(wav_path) and os.path.getsize(wav_path) > 1000:
             _LAST_ERROR = ""
@@ -257,7 +270,7 @@ def synthesize(text: str, speech_rate: float = 1.0, pitch_shift: float = 0.0,
 
     # 兜底 2：pyttsx3（某些机器上可用）
     try:
-        wav_name = _cache_name(text, speech_rate, pitch_shift, ".wav")
+        wav_name = _cache_name(text, speech_rate, pitch_hz, ".wav")
         wav_path = os.path.join(OUT_DIR, wav_name)
         _pyttsx3_save(text, wav_path)
         if os.path.exists(wav_path) and os.path.getsize(wav_path) > 0:

@@ -33,7 +33,8 @@ TEXT = "哎…面试没过啊。今天哪一下最让你难受？"
 
 # (文件名, 发音人, 音高, 语速, 说明)
 CASES = [
-    ("now",    "zh-CN-XiaoyiNeural",    "-15Hz", "-10%", "现在线上用的（小雨-Yi，压低 1 个半音，慢 10%）"),
+    ("now2",   "zh-CN-XiaoyiNeural",    "+5Hz",  "-10%", "★现在线上用的（基线抬 20Hz 之后）"),
+    ("now",    "zh-CN-XiaoyiNeural",    "-15Hz", "-10%", "基线抬升之前的那一版（压低 1 个半音）"),
     ("yi_p0",  "zh-CN-XiaoyiNeural",    "+0Hz",  "+0%",  "小雨-Yi 原调"),
     ("yi_p25", "zh-CN-XiaoyiNeural",    "+25Hz", "+0%",  "小雨-Yi 升 25Hz"),
     ("yi_p40", "zh-CN-XiaoyiNeural",    "+40Hz", "+0%",  "小雨-Yi 升 40Hz"),
