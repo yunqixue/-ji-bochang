@@ -670,7 +670,7 @@
   }
 
   /* 人物照片压一点冷调，别和霓虹打架 */
-  html[data-theme="cyber"] .avatar-img { filter: saturate(1.06) contrast(1.05) brightness(.96); }
+  /* 立绘保持原图清晰度，不加任何滤镜（原来的 saturate/contrast 会让五官发软） */
 
   html[data-theme="cyber"] .avatar-frame { box-shadow: 0 0 0 1px rgba(0, 229, 255, .35), 0 0 34px -6px rgba(0, 229, 255, .55); }
 
