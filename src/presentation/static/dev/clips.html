@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>形象切片工作台</title>
+<!--
+  3D 形象切片生成器（开发工具，不进演示链路）。
+
+  用法：
+    · 被 scripts/clipgen/make_avatar_clips.js 驱动（?batch=1&collect=1）
+    · 或手动：启动 app.py 后浏览器打开
+        http://127.0.0.1:8000/static/dev/clips.html?batch=1
+      页面上点一次「开始」（浏览器要求用户手势才允许出声），
+      六个情绪切片依次录制并自动下载 webm。
+
+  单个切片：?mood=happy&text=要说的话&name=xi
+-->
+<script type="importmap">
+{
+  "imports": {
+    "three": "/static/vendor/three.module.js",
+    "three/addons/": "/static/vendor/three/addons/"
+  }
+}
+</script>
+<style>
+  html, body { margin: 0; height: 100%; background: #1a1210; color: #f5ece4;
+    font: 14px/1.6 "Microsoft YaHei", sans-serif; }
+  body { display: flex; gap: 16px; padding: 16px; box-sizing: border-box; }
+  #stage { width: 640px; height: 960px; flex: 0 0 auto; border-radius: 16px;
+    overflow: hidden; background: radial-gradient(120% 100% at 50% 8%, #fffdf9 0%, #fdf1e5 44%, #f7e7d7 100%); }
+  #panel { flex: 1; min-width: 0; }
+  #panel h1 { font-size: 16px; margin: 0 0 12px; }
+  #log { white-space: pre-wrap; font-size: 12.5px; color: #cbb8a8; max-height: 80vh; overflow: auto; }
+  #start { font: inherit; font-size: 15px; padding: 12px 28px; border: 0; border-radius: 999px;
+    background: #e08a6b; color: #fff; cursor: pointer; margin-bottom: 12px; }
+  #start:disabled { opacity: .4; cursor: default; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="panel">
+  <h1>形象切片工作台</h1>
+  <button id="start" type="button">开始（点一下允许发声）</button>
+  <div id="log">初始化中……</div>
+</div>
+
+<script type="module">
+import { TalkingHead } from '/static/vendor/talkinghead.mjs';
+import * as THREE from 'three';
+
+// ---------- 切片清单：喜 乐 怒 哀 平静 疲惫 ----------
+const CLIPS = [
+  { name: 'xi',       label: '喜',   mood: 'happy',   text: '哈哈，太好啦！听到这个消息，我真的替你开心！' },
+  { name: 'le',       label: '乐',   mood: 'love',    text: '能这样陪着你聊天，我觉得特别幸福。' },
+  { name: 'nu',       label: '怒',   mood: 'angry',   text: '这也太过分了吧！我都替你生气！' },
+  { name: 'ai',       label: '哀',   mood: 'sad',     text: '别难过……不管怎么样，我都会一直陪着你的。' },
+  { name: 'pingjing', label: '平静', mood: 'neutral', text: '嗯，我在听呢，你慢慢说，不着急。' },
+  { name: 'pibei',    label: '疲惫', mood: 'sleep',   text: '今天聊了好久呀，我都有点累了呢……' },
+];
+
+const Q = new URLSearchParams(location.search);
+const logEl = document.getElementById('log');
+function log(s) { logEl.textContent += '\n' + s; console.log('[clips]', s); }
+
+// 供外部脚本读的状态
+window.__state = 'init';
+window.__clips = {};
+window.__allDone = false;
+window.__error = '';
+
+// RPM 模型只有拆分形态时，把合并形态名别名下接（同 index.html 的补丁）
+// 缺合并形态的模型要补条目：眨眼上限函数每帧读 mtAvatar['eyesLookDown'].value，
+// 条目不存在就抛异常、动画帧崩掉。克隆正常条目的结构，写入目标绑到拆分形态上。
+function patchMorphAliases(h) {
+  const ALIAS = {
+    mouthSmile: ['mouthSmileLeft', 'mouthSmileRight'],
+    mouthOpen: ['jawOpen'],
+    eyesClosed: ['eyeBlinkLeft', 'eyeBlinkRight'],
+    eyesLookDown: ['eyeLookDownLeft', 'eyeLookDownRight'],
+    eyesLookUp: ['eyeLookUpLeft', 'eyeLookUpRight']
+  };
+  const refName = Object.keys(h.mtAvatar).find(k => {
+    const m = h.mtAvatar[k];
+    return m && m.ms && m.ms.length;
+  });
+  if (!refName) { return; }
+  Object.entries(ALIAS).forEach(function (pair) {
+    const target = pair[0];
+    let mt = h.mtAvatar[target];
+    if (mt && mt.ms && mt.ms.length) { return; }
+    if (!mt) {
+      mt = Object.assign({}, h.mtAvatar[refName], {
+        ms: [], is: [], fixed: null, system: null, systemd: null,
+        newvalue: null, base: null, v: 0, value: 0, applied: 0,
+        needsUpdate: true, baseline: 0
+      });
+      h.mtAvatar[target] = mt;
+    }
+    pair[1].forEach(function (s) {
+      const src = h.mtAvatar[s];
+      if (src && src.ms && src.ms.length) {
+        for (let i = 0; i < src.ms.length; i++) { mt.ms.push(src.ms[i]); mt.is.push(src.is[i]); }
+      }
+    });
+  });
+}
+
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+let head = null;
+let recDest = null;   // 录制用的音频分接
+
+async function boot() {
+  if (!window.WebGL2RenderingContext) { throw new Error('没有 WebGL2'); }
+  const glbUrl = Q.get('glb') || '/static/avatar/xiaoyu.glb';
+  // 服务刚启动时偶发连不上，重试几次再认输
+  let probe = null;
+  for (let i = 0; i < 4; i++) {
+    try { probe = await fetch(glbUrl, { method: 'HEAD' }); if (probe.ok) break; } catch (e) { }
+    await sleep(1000);
+  }
+  if (!probe || !probe.ok) { throw new Error('缺模型 ' + glbUrl); }
+
+  head = new TalkingHead(document.getElementById('stage'), {
+    lipsyncLang: 'zh',
+    lipsyncModules: ['zh'],
+    cameraView: Q.get('view') || 'head',   // 切片用 head 取景：脸占满画面，口型看得清
+    cameraRotateEnable: false,
+    cameraZoomEnable: false,
+    modelPixelRatio: 1,
+    // 取景微调（URL 参数 ?cy=0.08&cd=0.6）：这个模型头偏低，把相机抬高/拉远补偿
+    cameraY: parseFloat(Q.get('cy') || '0.06'),
+    cameraDistance: parseFloat(Q.get('cd') || '0.8'),
+    // TalkingHead 构造函数硬性要求 ttsEndpoint 非空，哪怕我们只用 speakAudio。
+    // 填一个真实存在但永远不会被它调用的地址即可。
+    ttsEndpoint: '/api/tts'
+  });
+  await head.showAvatar({ url: glbUrl, body: 'F', avatarMood: 'neutral', lipsyncLang: 'zh' });
+  head.setView(Q.get('view') || 'head');
+  patchMorphAliases(head);
+
+  // 背景：canvas.captureStream 只录得到 WebGL 画布，录不到 CSS 背景。
+  // 把场景图直接设为 3D 场景背景（?bg=home|cafe|park|night|study，默认 home）。
+  // 传 ?bg=none 用纯色（方便后期抠像）。
+  const bgName = Q.get('bg') || 'home';
+  if (bgName === 'none') {
+    head.scene.background = new THREE.Color(0xfdf1e5);
+  } else {
+    await new Promise(res => {
+      new THREE.TextureLoader().load('/avatar/bg_' + bgName + '.webp', t => {
+        t.colorSpace = THREE.SRGBColorSpace;
+        head.scene.background = t;
+        res();
+      }, undefined, () => { head.scene.background = new THREE.Color(0xfdf1e5); res(); });
+    });
+  }
+
+  // 等中文唇形模块
+  const t0 = Date.now();
+  while (!head.lipsync['zh'] && Date.now() - t0 < 3000) { await sleep(100); }
+
+  // 录制音频分接：语音增益 → MediaStreamDestination（并联，不影响正常播放）
+  recDest = head.audioCtx.createMediaStreamDestination();
+  head.audioSpeechGainNode.connect(recDest);
+
+  window.__head = head;   // 调试探针用
+  log('3D 形象就绪');
+  window.__state = 'ready';
+}
+
+// 录一个切片：设置情绪 → 取语音+词时间戳 → 边录边播 → 返回 webm blob
+async function recordClip(clip) {
+  log(`录制 [${clip.label}] mood=${clip.mood} 「${clip.text}」`);
+  head.setMood(clip.mood);
+  head.lookAtCamera(600);                 // 对着镜头说，更有交流感
+  await sleep(700);                       // 等情绪过渡到脸上
+
+  const r = await (await fetch('/api/tts?text=' + encodeURIComponent(clip.text))).json();
+  if (!r.audio_url) { throw new Error('TTS 没出声音：' + (r.error || '未知')); }
+
+  const buf = await (await fetch(r.audio_url)).arrayBuffer();
+  const audio = await head.audioCtx.decodeAudioData(buf);
+  if (head.audioCtx.state === 'suspended') { await head.audioCtx.resume(); }
+
+  const payload = { audio };
+  if (r.lipsync && r.lipsync.words && r.lipsync.words.length) {
+    payload.words = r.lipsync.words;
+    payload.wtimes = r.lipsync.wtimes;
+    payload.wdurations = r.lipsync.wdurations;
+  }
+
+  // 开录：画布视频 + 语音音轨
+  const canvas = document.querySelector('#stage canvas');
+  const stream = canvas.captureStream(30);
+  recDest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+  const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus') ? 'video/webm;codecs=vp9,opus' : 'video/webm';
+  const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 4_000_000 });
+  const chunks = [];
+  rec.ondataavailable = e => { if (e.data && e.data.size) { chunks.push(e.data); } };
+  const stopped = new Promise(res => { rec.onstop = res; });
+
+  rec.start(250);
+  await sleep(400);                       // 片头留一点静止帧
+  head.speakAudio(payload, { lipsyncLang: 'zh' });
+
+  // 等说完（TalkingHead 没有播完回调，轮询状态位，兜底 30 秒）
+  const t0 = Date.now();
+  let seen = false;
+  while (Date.now() - t0 < 30000) {
+    const speaking = head.isSpeaking || head.isAudioPlaying;
+    if (speaking) { seen = true; }
+    if (seen && !speaking) { break; }
+    await sleep(120);
+  }
+  await sleep(600);                       // 片尾留一点收势
+  rec.stop();
+  await stopped;
+  // 只停画布的视频轨；音轨是 recDest 的、后面几条切片还要用，stop 了就永久静音
+  stream.getVideoTracks().forEach(t => t.stop());
+  head.setMood('neutral');
+
+  const blob = new Blob(chunks, { type: 'video/webm' });
+  if (blob.size < 10000) { throw new Error('录出来是空的（WebGL 渲染可能没跑）'); }
+  log(`[${clip.label}] 完成 ${(blob.size / 1024).toFixed(0)} KB`);
+  return blob;
+}
+
+function blobToDataURL(blob) {
+  return new Promise(res => {
+    const fr = new FileReader();
+    fr.onload = () => res(fr.result);
+    fr.readAsDataURL(blob);
+  });
+}
+
+function download(name, blob) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+}
+
+async function runBatch() {
+  const collect = Q.get('collect') === '1';   // collect=1：结果被脚本取走；否则浏览器自动下载
+  const only = (Q.get('only') || '').split(',').filter(Boolean);
+  const list = only.length ? CLIPS.filter(c => only.includes(c.name)) : CLIPS;
+  for (const clip of list) {
+    const blob = await recordClip(clip);
+    const fname = `clip_${clip.name}_${clip.mood}.webm`;
+    if (collect) {
+      window.__clips[clip.name] = await blobToDataURL(blob);
+    } else {
+      download(fname, blob);
+      await sleep(800);                   // 给浏览器下载让个路
+    }
+  }
+  window.__allDone = true;
+  log('全部切片完成 ✅');
+}
+
+async function runSingle() {
+  const clip = {
+    name: Q.get('name') || 'custom',
+    label: Q.get('name') || 'custom',
+    mood: Q.get('mood') || 'neutral',
+    text: Q.get('text') || '你好呀，我是小雨。'
+  };
+  const blob = await recordClip(clip);
+  window.__clips[clip.name] = await blobToDataURL(blob);
+  if (Q.get('collect') !== '1') { download(`clip_${clip.name}_${clip.mood}.webm`, blob); }
+  window.__allDone = true;
+}
+
+// ---------- 启动 ----------
+(async () => {
+  try {
+    await boot();
+  } catch (e) {
+    window.__error = String(e && e.message || e);
+    window.__state = 'error';
+    log('初始化失败：' + window.__error);
+    return;
+  }
+  const btn = document.getElementById('start');
+  // collect 模式（脚本驱动）不需要用户手势 —— 启动脚本已带 autoplay 旗标
+  if (Q.get('collect') === '1') {
+    btn.style.display = 'none';
+    try {
+      if (Q.get('batch') === '1') { await runBatch(); } else { await runSingle(); }
+    } catch (e) {
+      window.__error = String(e && e.message || e);
+      log('录制失败：' + window.__error);
+    }
+    return;
+  }
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    try { head.audioCtx.resume(); } catch (e) { }
+    try {
+      if (Q.get('batch') === '1') { await runBatch(); } else { await runSingle(); }
+    } catch (e) {
+      window.__error = String(e && e.message || e);
+      log('录制失败：' + window.__error);
+    }
+    btn.disabled = false;
+  });
+  log('就绪。点「开始」生成切片。');
+})();
+</script>
+</body>
+</html>

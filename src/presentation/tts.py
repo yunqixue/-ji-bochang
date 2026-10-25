@@ -103,8 +103,60 @@ async def _edge_save(text: str, out_path: str, rate: str, pitch: str) -> None:
             pass
 
 
-def timings_for(audio_url: Optional[str]) -> Optional[dict]:
-    """按音频 URL 查逐词时间戳（3D 口型同步用）。没有就返回 None。"""
+def _audio_duration_ms(path: str) -> int:
+    """读音频时长（毫秒）。用 PyAV 直接数帧，不解码成 PCM，很快。"""
+    try:
+        import av
+        with av.open(path) as c:
+            if c.duration:
+                return int(c.duration / 1000)          # av.time_base = 微秒
+            st = c.streams.audio[0]
+            if st.duration and st.time_base:
+                return int(float(st.duration * st.time_base) * 1000)
+            n = 0
+            for _ in c.decode(st):
+                n += 1
+            return int(n * 0.02 * 1000)                # 兜底：按 20ms/帧粗估
+    except Exception:
+        return 0
+
+
+def _estimate_words(text: str, dur_ms: int) -> Optional[dict]:
+    """没有逐词时间戳时，**按字数把时间均分**造一份近似时间戳。
+
+    为什么需要：命中缓存的老音频（预演生成的那批、demo_cache 里的）都没有 .words.json，
+    3D 形象拿不到时间戳就只播声音、不张嘴 —— 用户看到的就是"画面在抖但嘴不动"。
+    中文 TTS 语速相对均匀，按字数均分出来的口型节奏虽然不精确，但**看起来是对上的**。
+    """
+    if not text or dur_ms <= 0:
+        return None
+    skip = set("，。！？、；：…—·,.!?;:\"'（）()《》【】 \t\n")
+    chars = [c for c in text if c not in skip]
+    if not chars:
+        return None
+    # 汉字之间留一点点间隙，避免口型一直张着
+    per = max(60, int(dur_ms / len(chars)))
+    words, wtimes, wdurations = [], [], []
+    t = 0
+    for c in chars:
+        if t >= dur_ms:
+            break
+        words.append(c)
+        wtimes.append(t)
+        wdurations.append(max(40, int(per * 0.72)))
+        t += per
+    if not words:
+        return None
+    return {"words": words, "wtimes": wtimes, "wdurations": wdurations, "estimated": True}
+
+
+def timings_for(audio_url: Optional[str], text: str = "") -> Optional[dict]:
+    """按音频 URL 查逐词时间戳（3D 口型同步用）。
+
+    优先读真正的 .words.json（edge-tts 的 WordBoundary）；
+    没有就按"字数均分时长"造一份近似的（estimated=True），
+    这样**缓存里的老音频也能让 3D 张嘴**，而不是干抖不说话。
+    """
     if not audio_url:
         return None
     name = os.path.basename(audio_url)
@@ -118,6 +170,9 @@ def timings_for(audio_url: Optional[str]) -> Optional[dict]:
             return data
     except Exception:
         pass
+    path = os.path.join(OUT_DIR, name)
+    if os.path.exists(path):
+        return _estimate_words(text, _audio_duration_ms(path))
     return None
 
 

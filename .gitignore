@@ -1,4 +1,4 @@
-# ===== 数据集与大文件（走共享云盘，只登记 MANIFEST.md）=====
+# ===== 数据集与大文件（走共享云盘，只登�?MANIFEST.md�?====
 data/*
 !data/MANIFEST.md
 *.bin
@@ -18,7 +18,7 @@ data/*
 *.pkl
 *.h5
 
-# ===== 密钥与本地配置 =====
+# ===== 密钥与本地配�?=====
 .env
 .env.*
 !.env.example
@@ -59,7 +59,7 @@ desktop.ini
 .dsh/
 *.jsonl.zstd
 
-# ===== 令牌 / 密钥文件（绝不进仓库）=====
+# ===== 令牌 / 密钥文件（绝不进仓库�?====
 令牌.txt
 *令牌*
 *token*
@@ -67,14 +67,13 @@ token.txt
 *.token
 api_key*
 note.txt
-# ===== 运行生成物（TTS 语音、评测结果，不进仓库）=====
+# ===== 运行生成物（TTS 语音、评测结果，不进仓库�?====
 src/presentation/static/tts/*.mp3
 src/presentation/static/tts/*.wav
 experiments/result_*.json
 experiments/_*.txt
-# 例外：音色试听样本要进仓库，三个人得听同一批文件才好讨论"像不像女生"
-#（9 段共约 280KB，远低于单文件 5MB 的上限；可用 experiments/make_voice_samples.py 重新生成）
-!experiments/voicetest/*.mp3
+# 例外：音色试听样本要进仓库，三个人得听同一批文件才好讨�?像不像女�?
+#�? 段共�?280KB，远低于单文�?5MB 的上限；可用 experiments/make_voice_samples.py 重新生成�?!experiments/voicetest/*.mp3
 # ===== 本地模型与语音包（体积大，不进仓库）=====
 data/models/
 *.onnx
@@ -86,3 +85,17 @@ logs/
 *api-key*
 *secret*
 *credential*
+
+# ���ع��ߣ�ffmpeg 81MB�������ֿ⣩
+experiments/imgtool/bin/
+
+
+# ����ͬ�������ʱ�����TTS ÿ�����ɶ�������������в��
+src/presentation/static/tts/*.words.json
+
+# ��Ƭ���ߵı��ر���ģ��������
+scripts/clipgen/backup/
+scripts/clipgen/node_modules/
+
+# ��Ƭ���ߵĵ���֡���м���
+scripts/clipgen/output/frames/

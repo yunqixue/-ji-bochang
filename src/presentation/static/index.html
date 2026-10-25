@@ -670,7 +670,7 @@
   }
 
   /* 人物照片压一点冷调，别和霓虹打架 */
-  html[data-theme="cyber"] .avatar-img { filter: saturate(1.06) contrast(1.05) brightness(.96); }
+  /* 立绘保持原图清晰度，不加任何滤镜（原来的 saturate/contrast 会让五官发软） */
 
   html[data-theme="cyber"] .avatar-frame { box-shadow: 0 0 0 1px rgba(0, 229, 255, .35), 0 0 34px -6px rgba(0, 229, 255, .55); }
 
@@ -826,13 +826,13 @@
   }
   html[data-theme="night"] body {
     background:
-      radial-gradient(900px 520px at 12% -10%, rgba(140, 90, 255, .18), transparent 62%),
-      radial-gradient(820px 480px at 92% 2%, rgba(255, 170, 80, .10), transparent 58%),
-      linear-gradient(180deg, #120c1f 0%, #0b0713 58%, #0e0a18 100%);
+      radial-gradient(900px 520px at 12% -10%, rgba(150, 110, 255, .26), transparent 62%),
+      radial-gradient(820px 480px at 92% 2%, rgba(255, 185, 110, .16), transparent 58%),
+      linear-gradient(180deg, #241d3a 0%, #1b1530 58%, #201a36 100%);
   }
   html[data-theme="night"] .stage {
-    background: radial-gradient(120% 100% at 50% 8%, #1a1230 0%, #120c22 46%, #0a0714 100%);
-    border-color: rgba(180, 140, 255, .2);
+    background: radial-gradient(120% 100% at 50% 8%, #2e2450 0%, #241c40 46%, #1a1432 100%);
+    border-color: rgba(180, 140, 255, .28);
   }
   html[data-theme="night"] .avatar-fallback {
     background: radial-gradient(circle at 50% 34%, #241a3c 0%, #1a1229 66%, #100b1c 100%);
@@ -929,6 +929,8 @@
     opacity: .82;
     filter: blur(18px) saturate(1.35) brightness(.9);
     transform: scale(1.08);
+    /* 切主题时不跳变：模糊/亮度平滑过渡，避免"背景被拉远"的错觉 */
+    transition: filter 420ms ease, opacity 420ms ease;
   }
   .stage-bg img {
     width: 100%;
@@ -936,6 +938,13 @@
     object-fit: cover;
     object-position: 50% 20%;
     display: block;
+    /* 动态背景：极慢的推近 + 轻微漂移，像镜头在呼吸 */
+    animation: bgKenBurns 42s ease-in-out infinite alternate;
+    will-change: transform;
+  }
+  @keyframes bgKenBurns {
+    from { transform: scale(1) translate3d(0, 0, 0); }
+    to   { transform: scale(1.09) translate3d(-1.6%, -1.2%, 0); }
   }
   /* 边缘压暗，把视线收回到中间的人身上（只作用在背景上，不盖脸） */
   .stage-tint {
@@ -945,35 +954,12 @@
     pointer-events: none;
     background: radial-gradient(115% 80% at 50% 42%, transparent 52%, rgba(0, 0, 0, .34) 100%);
   }
-  html[data-theme="sweet"] .stage-bg,
-  html[data-theme="cream"] .stage-bg,
-  html[data-theme="nature"] .stage-bg { opacity: .62; filter: blur(20px) saturate(1.2) brightness(1.02); }
-  html[data-theme="sweet"] .stage-tint,
-  html[data-theme="cream"] .stage-tint,
-  html[data-theme="nature"] .stage-tint {
-    background: radial-gradient(115% 80% at 50% 42%, transparent 56%, rgba(84, 52, 30, .18) 100%);
-  }
-  html[data-theme="cyber"] .stage-bg,
-  html[data-theme="night"] .stage-bg { opacity: .8; filter: blur(24px) saturate(1.15) brightness(.6); }
-  /* 深色主题下再补两团霓虹氛围光，左右各一团，慢慢呼吸 —— 空的地方不再是一块死黑 */
-  html[data-theme="cyber"] .stage-tint::before,
-  html[data-theme="night"] .stage-tint::before {
-    content: "";
-    position: absolute;
-    inset: -10%;
-    background:
-      radial-gradient(38% 52% at 12% 32%, rgba(0, 229, 255, .13), transparent 70%),
-      radial-gradient(36% 50% at 88% 62%, rgba(255, 0, 128, .10), transparent 70%);
-    animation: ambientDrift 11s ease-in-out infinite alternate;
-  }
-  html[data-theme="night"] .stage-tint::before {
-    background:
-      radial-gradient(38% 52% at 12% 32%, rgba(150, 110, 255, .24), transparent 70%),
-      radial-gradient(36% 50% at 88% 62%, rgba(255, 120, 190, .16), transparent 70%);
-  }
-  @keyframes ambientDrift {
-    0%   { transform: translate3d(0, 0, 0) scale(1); opacity: .85; }
-    100% { transform: translate3d(2.5%, -2%, 0) scale(1.08); opacity: 1; }
+  /* ★ 背景（舞台虚化层 + 边缘压暗）不随主题变化：主题只管 UI 配色，背景属于内容。
+     原来每个主题给了不同的 brightness/saturate，深色主题还额外叠了霓虹光，
+     一切换光感背景就跟着变 —— 看起来像"换了张背景"。现在统一成一套参数。 */
+  .stage-bg { opacity: .78; filter: blur(20px) saturate(1.18) brightness(.95); }
+  .stage-tint {
+    background: radial-gradient(115% 80% at 50% 42%, transparent 54%, rgba(0, 0, 0, .26) 100%);
   }
   /* 背景下方压暗，让画面自然过渡到字幕区，不要一刀切 */
   .stage-tint::after {
@@ -983,12 +969,7 @@
     right: 0;
     bottom: 0;
     height: 34%;
-    background: linear-gradient(to top, rgba(0, 0, 0, .42), transparent);
-  }
-  html[data-theme="sweet"] .stage-tint::after,
-  html[data-theme="cream"] .stage-tint::after,
-  html[data-theme="nature"] .stage-tint::after {
-    background: linear-gradient(to top, rgba(120, 82, 54, .2), transparent);
+    background: linear-gradient(to top, rgba(0, 0, 0, .34), transparent);
   }
 
   /* --- ② 形象动效：一条 transform 同时管两件事 ---
@@ -1126,6 +1107,9 @@
   html[data-scene="1"] body::before {      /* 盖掉赛博主题的网格线，场景上不要再叠网格 */
     opacity: .18;
   }
+  /* 场景图上的统一压暗：所有主题用同一套，切光感时背景不再跟着明暗跳。
+     配套：场景模式下文字统一转浅色（见文件末尾），靠文字阴影保证可读，
+     而不是靠压暗整页。 */
   html[data-scene="1"] body::after {
     content: "";
     position: fixed;
@@ -1133,13 +1117,16 @@
     z-index: 0;
     pointer-events: none;
     background:
-      linear-gradient(to bottom, rgba(4, 8, 14, .82) 0%, rgba(4, 8, 14, .26) 22%,
-                      rgba(4, 8, 14, .16) 55%, rgba(4, 8, 14, .86) 100%);
+      linear-gradient(to bottom, rgba(10, 8, 16, .34) 0%, rgba(10, 8, 16, .06) 22%,
+                      rgba(10, 8, 16, .05) 58%, rgba(10, 8, 16, .38) 100%);
   }
+  /* ★ 这里的 !important 是必需的：各主题都有自己的 `html[data-theme="x"] .stage { background: … }`，
+     选择器权重和 `html[data-scene="1"] .stage` 一样，谁写在后面谁赢。C 后来新增的 light/ease 主题
+     就写在后面，结果整块白底把场景图盖住了（实测截图里中央一大片发白）。 */
   html[data-scene="1"] .stage {
-    background: transparent;
-    border-color: transparent;
-    box-shadow: none;
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
   }
   /* 舞台外面那层面板（.stage-card）也有深色底和描边，场景模式下一起透掉，
      否则整页背景会被它压暗、四周还留一圈圆角深色边框 */
@@ -1150,8 +1137,8 @@
   }
   html[data-scene="1"] .view-call,
   html[data-scene="1"] .view-chat { background: transparent !important; }
-  html[data-scene="1"] .stage::before { opacity: 0; }   /* 原来那团顶部暖光 */
-  html[data-scene="1"] .stage-bg { display: none; }     /* 局部虚化层隐藏 */
+  html[data-scene="1"] .stage::before { opacity: 0 !important; }   /* 主题里那团顶部暖光 */
+  html[data-scene="1"] .stage-bg { display: none !important; }     /* 局部虚化层隐藏 */
   html[data-scene="1"] .stage-tint {
     background: radial-gradient(120% 88% at 50% 44%, transparent 62%, rgba(0, 0, 0, .38) 100%);
   }
@@ -1173,6 +1160,283 @@
   .stage[data-avatar3d="1"] .avatar-frame { visibility: hidden; }
   .avatar3d-mount .avatar3d-canvas,
   .avatar3d-mount canvas { width: 100%; height: 100%; display: block; }
+
+  /* ============ 主题：正常光（干净清爽的浅色，对比度正常）============ */
+  html[data-theme="light"] {
+    --bg: #f6f8fa;
+    --panel: rgba(255, 255, 255, .92);
+    --line: rgba(110, 130, 150, .18);
+    --ink: #2b333b;
+    --muted: #6f7c89;
+    --accent: #2f8f9d;
+    --accent-deep: #257582;
+    --accent-soft: #e4f1f3;
+    --user-bubble: #eef3f7;
+    --danger: #d9534f;
+    --ok: #3f9d5f;
+    --shadow: 0 16px 44px -20px rgba(60, 80, 100, .28);
+    --shadow-soft: 0 6px 20px -12px rgba(60, 80, 100, .24);
+  }
+  html[data-theme="light"] body {
+    background:
+      radial-gradient(900px 520px at 12% -8%, #eef4f8 0%, transparent 62%),
+      radial-gradient(820px 480px at 92% 4%, #f7f4ee 0%, transparent 58%),
+      linear-gradient(180deg, #fbfcfd 0%, #f5f8fa 50%, #eef3f6 100%);
+  }
+  html[data-theme="light"] .stage {
+    background: radial-gradient(120% 100% at 50% 8%, #ffffff 0%, #f4f8fa 46%, #e9f0f4 100%);
+  }
+  html[data-theme="light"] .avatar-fallback {
+    background: radial-gradient(circle at 50% 34%, #ffffff 0%, #eef4f8 66%, #e2ebf1 100%);
+    border-color: rgba(160, 185, 200, .5);
+  }
+
+  /* ============ 主题：护眼（暖纸底、低对比、低蓝光）============ */
+  html[data-theme="ease"] {
+    --bg: #f3ecdf;
+    --panel: rgba(250, 245, 235, .94);
+    --line: rgba(150, 128, 96, .22);
+    --ink: #3b352c;
+    --muted: #827665;
+    --accent: #a8763f;
+    --accent-deep: #8e6231;
+    --accent-soft: #eee3d1;
+    --user-bubble: #e9e0cf;
+    --danger: #b5564c;
+    --ok: #5f8a5a;
+    --shadow: 0 16px 44px -20px rgba(120, 96, 64, .26);
+    --shadow-soft: 0 6px 20px -12px rgba(120, 96, 64, .22);
+  }
+  html[data-theme="ease"] body {
+    background:
+      radial-gradient(900px 520px at 12% -8%, #f7efdf 0%, transparent 62%),
+      radial-gradient(820px 480px at 92% 4%, #f2ead9 0%, transparent 58%),
+      linear-gradient(180deg, #f8f2e6 0%, #f3ecdf 48%, #ece3d3 100%);
+  }
+  html[data-theme="ease"] .stage {
+    background: radial-gradient(120% 100% at 50% 8%, #fdf8ee 0%, #f5ecdc 46%, #eee3d0 100%);
+  }
+  html[data-theme="ease"] .avatar-fallback {
+    background: radial-gradient(circle at 50% 34%, #fefaf1 0%, #f3e9d7 66%, #e9dcc5 100%);
+    border-color: rgba(190, 165, 130, .5);
+  }
+  /* 护眼模式：降低对比与亮度刺激 */
+  html[data-theme="ease"] .bubble { background: #fbf6ec; border-color: rgba(150, 128, 96, .2); }
+  html[data-theme="ease"] input { background: #fbf7ee; }
+  html[data-theme="ease"] .subtitle span { color: #4a4237; }
+  /* ===== 桌面小人浮层（B 追加，v2）=====
+     ① 气泡做成"思考气泡"：椭圆圆角 + 深蓝描边 + 三个由大到小的圆点尾巴（照用户给的参考图）
+     ② 眨眼：换真实的闭眼立绘
+     ③ 说话：在 q_<表情> 与 q_talk（张嘴）之间快速交替，像在讲话
+     ④ 待机随机小动作：蹦一下 / 摇摆 / 歪头 / 左右挪 / 鼓起
+     ⑤ 水印已从素材层面清掉（抠图时只保留最大连通域，"AI 生成"那串字与贴纸不相连，会被整体丢弃） */
+  .pet-layer {
+    position: fixed;
+    right: 200px;   /* 让开右下角的"摄像头未开"小窗 */
+    /* ★ 留出底部输入框的高度：小人会吃点击，压在"发送"按钮上就点不到了（实测发现） */
+    bottom: 152px;
+    z-index: 60;
+    width: 128px;
+    pointer-events: none;
+  }
+  .pet-layer[hidden] { display: none; }
+  html[data-pet="0"] .pet-layer { display: none; }
+  .pet-body {
+    position: relative;
+    width: 100%;
+    pointer-events: auto;
+    cursor: pointer;
+    filter: drop-shadow(0 10px 18px rgba(20, 30, 45, .32));
+    transform-origin: 50% 100%;
+    animation: petBreathe 4.2s ease-in-out infinite;
+    transition: transform 140ms ease-out;
+    touch-action: none;
+  }
+  .pet-body:hover { transform: scale(1.04); }
+  .pet-body img { width: 100%; display: block; user-select: none; -webkit-user-drag: none; }
+
+  @keyframes petBreathe {
+    0%, 100% { transform: scale(1) translateY(0); }
+    50%      { transform: scale(1.015) translateY(-2px); }
+  }
+  /* 待机小动作：写成"一次性"动画，由 JS 加类触发、动画结束再摘掉 */
+  .pet-body.act-hop   { animation: petHop 560ms cubic-bezier(.3,.9,.3,1); }
+  .pet-body.act-sway  { animation: petSway 1400ms ease-in-out; }
+  .pet-body.act-lean  { animation: petLean 1200ms ease-in-out; }
+  .pet-body.act-slide { animation: petSlide 1800ms ease-in-out; }
+  .pet-body.act-pulse { animation: petPulse 900ms ease-in-out; }
+  .pet-body.act-shake { animation: petShake 700ms ease-in-out; }
+  @keyframes petHop {
+    0% { transform: translateY(0) scale(1); }
+    30% { transform: translateY(-22px) scale(1.05, .96); }
+    55% { transform: translateY(0) scale(.97, 1.04); }
+    75% { transform: translateY(-6px) scale(1.01); }
+    100% { transform: translateY(0) scale(1); }
+  }
+  @keyframes petSway {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-4deg); }
+    60% { transform: rotate(4deg); }
+  }
+  @keyframes petLean {
+    0%, 100% { transform: rotate(0) translateX(0); }
+    35% { transform: rotate(-6deg) translateX(-4px); }
+    70% { transform: rotate(-2deg) translateX(2px); }
+  }
+  @keyframes petSlide {
+    0%, 100% { transform: translateX(0); }
+    35% { transform: translateX(-26px); }
+    65% { transform: translateX(14px); }
+  }
+  @keyframes petPulse {
+    0%, 100% { transform: scale(1); }
+    45% { transform: scale(1.09); }
+  }
+  @keyframes petShake {
+    0%, 100% { transform: rotate(0); }
+    20% { transform: rotate(3deg); }
+    40% { transform: rotate(-3deg); }
+    60% { transform: rotate(2deg); }
+    80% { transform: rotate(-2deg); }
+  }
+
+  /* 摸头：点下去时头被按住、整个身体被压扁下沉，松手后弹起略微超过原高度再回稳。
+     transform-origin 在底部，所以"缩"是从头往下压，而不是整体缩放。 */
+  .pet-body.act-pat { animation: petPat 780ms cubic-bezier(.22,.9,.3,1); }
+  @keyframes petPat {
+    0%   { transform: scale(1, 1) translateY(0); }
+    14%  { transform: scale(1.10, .80) translateY(18px); }
+    32%  { transform: scale(.94, 1.09) translateY(-11px); }
+    50%  { transform: scale(1.04, .97) translateY(3px); }
+    68%  { transform: scale(.99, 1.02) translateY(-3px); }
+    84%  { transform: scale(1.01, .995) translateY(1px); }
+    100% { transform: scale(1, 1) translateY(0); }
+  }
+  /* 摸头时头顶冒一个小爱心 */
+  .pet-heart {
+    position: absolute;
+    top: 4%;
+    left: 50%;
+    transform: translate(-50%, 0) scale(.6);
+    font-size: 26px;
+    color: #ff6b8a;
+    opacity: 0;
+    pointer-events: none;
+    text-shadow: 0 2px 6px rgba(255, 107, 138, .45);
+  }
+  .pet-heart.on { animation: petHeart 880ms ease-out; }
+  @keyframes petHeart {
+    0%   { opacity: 0; transform: translate(-50%, 6px) scale(.5); }
+    25%  { opacity: 1; transform: translate(-50%, -6px) scale(1.15); }
+    100% { opacity: 0; transform: translate(-50%, -46px) scale(.9); }
+  }
+
+  /* ---- 思考气泡（照参考图：白底 + 深蓝描边 + 三点尾巴）---- */
+  .pet-bubble {
+    position: absolute;
+    right: 4px;
+    bottom: calc(100% + 26px);
+    max-width: 250px;
+    padding: 12px 18px;
+    border-radius: 22px / 24px;
+    background: #fffdf8;
+    color: #1f3a5f;
+    font-size: 13.5px;
+    line-height: 1.6;
+    font-weight: 600;
+    text-align: center;
+    border: 2.5px solid #24466f;
+    box-shadow: 0 10px 24px -12px rgba(20, 40, 70, .45);
+    opacity: 0;
+    transform: translateY(6px) scale(.96);
+    transform-origin: 90% 100%;
+    transition: opacity 200ms ease, transform 220ms cubic-bezier(.2,.9,.3,1.2);
+    pointer-events: none;
+    white-space: pre-wrap;
+  }
+  .pet-bubble.on { opacity: 1; transform: translateY(0) scale(1); }
+  /* 三点尾巴：从大到小朝小人头顶方向排下去 */
+  .pet-bubble i {
+    position: absolute;
+    display: block;
+    border-radius: 50%;
+    background: #fffdf8;
+    border: 2.5px solid #24466f;
+  }
+  .pet-bubble i.t1 { width: 13px; height: 11px; right: 16px; bottom: -12px; }
+  .pet-bubble i.t2 { width: 8px;  height: 7px;  right: 8px;  bottom: -24px; }
+  .pet-bubble i.t3 { width: 5px;  height: 4px;  right: 4px;  bottom: -33px; }
+
+  .pet-close {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 20px;
+    height: 20px;
+    line-height: 17px;
+    border-radius: 50%;
+    font-size: 13px;
+    color: #667;
+    background: rgba(255, 255, 255, .92);
+    border: 1px solid rgba(120, 140, 160, .4);
+    pointer-events: auto;
+    opacity: 0;
+    transition: opacity 160ms ease;
+  }
+  .pet-layer:hover .pet-close { opacity: 1; }
+  @media (max-width: 720px) {
+    .pet-layer { width: 108px; right: 8px; bottom: 82px; }
+    .pet-bubble { max-width: 180px; font-size: 12px; padding: 9px 13px; border-width: 2px; }
+    .pet-bubble i { border-width: 2px; }
+  }
+
+  /* ============ 动态背景：整页场景模式下的缓慢漂移 ============ */
+  @keyframes sceneDrift {
+    0%   { background-position: 50% 42%; }
+    50%  { background-position: 54.5% 46%; }
+    100% { background-position: 50% 42%; }
+  }
+  html[data-scene="1"] body {
+    animation: sceneDrift 48s ease-in-out infinite;
+  }
+  /* 关掉动效偏好时不动 */
+  @media (prefers-reduced-motion: reduce) {
+    .stage-bg img { animation: none; }
+    html[data-scene="1"] body { animation: none; }
+  }
+
+  /* 场景模式：文字统一转浅色 + 阴影 —— 这样不靠压暗整页也能读清，
+     而且切光感时背景的明暗不再跳。 */
+  html[data-scene="1"] .call-name,
+  html[data-scene="1"] .call-status,
+  html[data-scene="1"] .call-timer,
+  html[data-scene="1"] .brand h1,
+  html[data-scene="1"] .brand .sub,
+  html[data-scene="1"] .subtitle span,
+  html[data-scene="1"] .hint {
+    color: #f8f6f2;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, .62);
+  }
+  html[data-scene="1"] .chip {
+    color: #f8f6f2;
+    border-color: rgba(255, 255, 255, .34);
+    background: rgba(22, 18, 28, .42);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, .5);
+  }
+
+  /* （已撤掉「说话时插入视频片段」：硬切真人视频与 2D 立绘风格割裂，观感诡异。
+     现在说话态仍由「伪口型」承担：有 expr_<表情>_talk.webp 就换张嘴图，没有就静态图。） */
+
+  /* ★ 放在所有主题之后：场景模式的铺法必须固定。
+     各主题的 `background: …` 简写会把 size/repeat/attachment 一并重置成默认值，
+     导致场景图从「铺满」退回「原始大小、平铺」——看起来就是背景位置/画面变了。
+     这里在最后统一钉住（动画仍会接管 position 做缓慢漂移）。 */
+  html[data-scene="1"] body {
+    background-size: cover;
+    background-position: 50% 42%;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+  }
 </style>
 </head>
 <body>
@@ -1187,6 +1451,8 @@
     </div>
     <div class="grow"></div>
     <select class="chip" id="theme-sel" title="换背景风格">
+      <option value="light">正常光</option>
+      <option value="ease">护眼</option>
       <option value="sweet">甜美式</option>
       <option value="cream">奶油色</option>
       <option value="cyber">科技感</option>
@@ -1201,12 +1467,12 @@
       <option value="night">水面倒影</option>
       <option value="study">山间公路</option>
       <option value="scifi">科幻·机甲</option>
-      <option value="scene1">风景 1</option>
-      <option value="scene2">风景 2</option>
-      <option value="scene3">风景 3</option>
-      <option value="scene4">风景 4</option>
-      <option value="scene5">风景 5</option>
-      <option value="scene6">风景 6</option>
+      <option value="r1">阳光房间</option>
+      <option value="r2">优雅生活</option>
+      <option value="r3">温馨的家</option>
+      <option value="r4">温馨横幅</option>
+      <option value="r5">街角咖啡厅</option>
+      <option value="r6">动漫竖屏</option>
     </select>
     <button class="chip" id="btn-to-chat" type="button">文字</button>
     <button class="chip danger" id="btn-hangup" type="button">挂断</button>
@@ -1268,6 +1534,8 @@
       <span class="pill" id="pill-asr"><i></i>语音识别</span>
       <span class="pill" id="pill-tts"><i></i>语音输出</span>
       <select class="chip" id="theme-sel2" title="换背景风格">
+        <option value="light">正常光</option>
+        <option value="ease">护眼</option>
         <option value="sweet">甜美式</option>
         <option value="cream">奶油色</option>
         <option value="cyber">科技感</option>
@@ -1282,12 +1550,12 @@
         <option value="night">水面倒影</option>
         <option value="study">山间公路</option>
         <option value="scifi">科幻·机甲</option>
-        <option value="scene1">风景 1</option>
-        <option value="scene2">风景 2</option>
-        <option value="scene3">风景 3</option>
-        <option value="scene4">风景 4</option>
-        <option value="scene5">风景 5</option>
-        <option value="scene6">风景 6</option>
+        <option value="r1">阳光房间</option>
+        <option value="r2">优雅生活</option>
+        <option value="r3">温馨的家</option>
+        <option value="r4">温馨横幅</option>
+        <option value="r5">街角咖啡厅</option>
+        <option value="r6">动漫竖屏</option>
       </select>
       <button class="chip" id="btn-to-call" type="button">回到通话</button>
       <button class="chip" id="btn-reset" type="button">重开一轮</button>
@@ -1350,6 +1618,20 @@
   </section>
 </section>
 
+<!-- ===================== 桌面小人浮层（B 2026-10-25 追加）=====================
+     一打开页面就出现在右下角，独立于两个视图，不影响原有布局与交互。
+     素材：assets/pet/q_*.webp（Q 版同一角色的 5 个表情，由 experiments/gen_pet_assets.py 生成）
+     行为：呼吸 → 随机眨眼 → 跟随智能体表情变脸 → 点她弹跳并说一句 → 可拖动。
+     ★ 想彻底关掉：给 <html> 加 data-pet="0"，或点她旁边的 ×。 -->
+<div class="pet-layer" id="pet-layer" aria-hidden="true">
+  <div class="pet-bubble" id="pet-bubble"><span id="pet-bubble-text"></span><i class="t1"></i><i class="t2"></i><i class="t3"></i></div>
+  <div class="pet-body" id="pet-body" title="点我一下">
+    <img id="pet-img" alt="" draggable="false">
+    <span class="pet-heart" id="pet-heart">♥</span>
+  </div>
+  <button class="pet-close" id="pet-close" type="button" title="收起小人">×</button>
+</div>
+
 <script>
 (function () {
   "use strict";
@@ -1383,7 +1665,7 @@
   function th3d() { return window.avatar3d || null; }
 
   var THEME_KEY = "emotion_agent_theme";
-  var THEMES = ["sweet", "cream", "cyber", "nature", "night"];
+  var THEMES = ["light", "ease", "sweet", "cream", "cyber", "nature", "night"];
 
   function setTheme(name, remember) {
     var t = (THEMES.indexOf(name) >= 0) ? name : "cream";
@@ -1404,7 +1686,7 @@
       var saved = localStorage.getItem(THEME_KEY);
       if (saved && THEMES.indexOf(saved) >= 0) { return saved; }
     } catch (e) { }
-    return "cyber";
+    return "light";          // 默认正常光；想护眼就切「护眼」
   }
 
   // ---------------- 视图切换 ----------------
@@ -1595,7 +1877,17 @@
         if (token !== layer.token) { return; }      // 已有更新的请求，丢弃这次
         if (trying !== base) { talkKnown[label] = true; }
         el.src = trying;
-        frame.setAttribute("data-layer", target);
+        // ★ 第一次显示这张图时不要淡入：`.avatar-img` 有 200ms opacity 过渡，
+        //   页面刚打开时它从 0 慢慢淡到 1，中途一瞥/截图就是"人物半透明、背景透出来"。
+        //   换表情时才需要交叉淡入；首帧直接出图更像"她本来就在那儿"。
+        if (!layer.ok) {
+          el.style.transition = "none";
+          frame.setAttribute("data-layer", target);
+          void el.offsetWidth;
+          requestAnimationFrame(function () { el.style.transition = ""; });
+        } else {
+          frame.setAttribute("data-layer", target);
+        }
         layer.show = target;
         layer.ok = true;
         layer.fallback.style.visibility = "hidden";
@@ -1659,7 +1951,8 @@
     var wasSpeaking = speaking;
     speaking = (state === "speaking");
     [stageEl, stageEl2].forEach(function (el) {
-      if (el) { el.setAttribute("data-state", state); }
+      if (!el) { return; }
+      el.setAttribute("data-state", state);
     });
     badgeState.textContent = STATE_CN[state] || state;
     var waveEl = $("voice-wave");
@@ -2325,6 +2618,278 @@
     if (currentView === "chat") { chatInput.focus(); } else { callInput.focus(); }
   }
 
+  // ---------------- 桌面小人（B 追加）----------------
+  // Q 版立绘浮在右下角：会呼吸、会眨眼（用的是真实的闭眼立绘，不是缩放糊弄）、
+  // 跟着智能体的表情变脸、点她弹一下并说句话、可以拖到屏幕别处。
+  var pet = (function () {
+    var layer = $("pet-layer");
+    var body = $("pet-body");
+    var img = $("pet-img");
+    var bubble = $("pet-bubble");
+    var closeBtn = $("pet-close");
+    if (!layer || !body || !img) { return null; }
+
+    var ASSETS = {
+      calm: "/pet/q_calm.webp",
+      happy: "/pet/q_happy.webp",
+      sad: "/pet/q_sad.webp",
+      surprised: "/pet/q_surprised.webp",
+      blink: "/pet/q_blink.webp",
+      talk: "/pet/q_talk.webp",
+      happy_talk: "/pet/q_happy_talk.webp",
+      sad_talk: "/pet/q_sad_talk.webp",
+      angry: "/pet/q_angry.webp",
+      angry_talk: "/pet/q_angry_talk.webp",
+      wave: "/pet/q_wave.webp",
+    };
+    var ready = {};
+    Object.keys(ASSETS).forEach(function (k) {
+      var im = new Image();
+      im.onload = function () { ready[k] = true; };
+      im.src = ASSETS[k];
+    });
+
+    var mood = "calm";        // 当前表情
+    var blinking = false;
+    var bubbleTimer = 0;
+    var blinkTimer = 0;
+
+    // 智能体表情 → 小人表情
+    var MOOD_MAP = {
+      happy: "happy", surprised: "surprised",
+      sad: "sad", angry: "angry",
+      neutral: "calm", anxious: "calm", empathic: "calm"
+    };
+
+    // 临时覆盖图（招手）：非空时优先显示它，用于"挥手打招呼"这种一次性动作
+    var override = "";
+    var waveTimer = 0;
+    var waveUntil = 0;
+    function wave(ms) {
+      var dur = ms || 1500;
+      var until = Date.now() + dur;
+      override = "wave";
+      paint();
+      // 已经有一次更长的招手在跑时，不要被短的招手提前收掉（踩过：进场问候把招手掐断）
+      if (until <= waveUntil) { return; }
+      waveUntil = until;
+      clearTimeout(waveTimer);
+      waveTimer = setTimeout(function () { override = ""; waveUntil = 0; paint(); }, dur);
+    }
+
+    function paint() {
+      var key = override || (blinking ? "blink" : mood);
+      var url = ASSETS[key] || ASSETS.calm;
+      if (img.getAttribute("src") !== url) { img.src = url; }
+    }
+
+    function scheduleBlink() {
+      clearTimeout(blinkTimer);
+      var wait = 2200 + Math.random() * 3600;
+      blinkTimer = setTimeout(function () {
+        blinking = true;
+        paint();
+        setTimeout(function () { blinking = false; paint(); scheduleBlink(); }, 130);
+      }, wait);
+    }
+
+    function say(text, holdMs) {
+      if (!bubble || !text) { return; }
+      var textEl = $("pet-bubble-text");
+      if (textEl) { textEl.textContent = text; }
+      bubble.classList.add("on");
+      clearTimeout(bubbleTimer);
+      bubbleTimer = setTimeout(function () { bubble.classList.remove("on"); },
+        holdMs || (1200 + text.length * 80));
+    }
+
+    // 摸头：按下去时整个身体被压扁下沉，松手回弹并轻微超出，再稳住
+    function pat() {
+      clearActs();
+      void body.offsetWidth;
+      body.classList.add("act-pat");
+      var heart = $("pet-heart");
+      if (heart) {
+        heart.classList.remove("on");
+        void heart.offsetWidth;
+        heart.classList.add("on");
+      }
+      setTimeout(function () { body.classList.remove("act-pat"); }, 820);
+      setTimeout(function () { if (heart) { heart.classList.remove("on"); } }, 900);
+    }
+
+    function bounce() {
+      body.classList.remove("bounce");
+      void body.offsetWidth;
+      body.classList.add("bounce");
+    }
+
+    var PET_LINES = [
+      "我在这儿呢～", "要我陪你待一会儿吗？", "点我有事吗？",
+      "嘿嘿，被你点到了。", "累的话就靠一会儿吧。"
+    ];
+
+    body.addEventListener("click", function (e) {
+      if (dragged) { return; }
+      pat();   // 摸头：压扁下沉 + 回弹 + 头顶爱心
+      say(PET_LINES[Math.floor(Math.random() * PET_LINES.length)]);
+      e.stopPropagation();
+    });
+
+    // 拖动：把 fixed 的 right/bottom 换成 left/top 再跟着鼠标走
+    var dragging = false, dragged = false, startX = 0, startY = 0, origL = 0, origT = 0;
+    body.addEventListener("pointerdown", function (e) {
+      var r = layer.getBoundingClientRect();
+      dragging = true; dragged = false;
+      startX = e.clientX; startY = e.clientY;
+      origL = r.left; origT = r.top;
+      layer.style.right = "auto";
+      layer.style.bottom = "auto";
+      layer.style.left = origL + "px";
+      layer.style.top = origT + "px";
+      body.setPointerCapture(e.pointerId);
+    });
+    body.addEventListener("pointermove", function (e) {
+      if (!dragging) { return; }
+      var dx = e.clientX - startX, dy = e.clientY - startY;
+      if (Math.abs(dx) + Math.abs(dy) > 4) { dragged = true; }
+      layer.style.left = (origL + dx) + "px";
+      layer.style.top = (origT + dy) + "px";
+    });
+    body.addEventListener("pointerup", function (e) {
+      dragging = false;
+      try { body.releasePointerCapture(e.pointerId); } catch (err) { }
+      setTimeout(function () { dragged = false; }, 30);
+    });
+
+    if (closeBtn) {
+      closeBtn.addEventListener("click", function (e) {
+        document.documentElement.setAttribute("data-pet", "0");
+        e.stopPropagation();
+      });
+    }
+
+    // ---- 说话：在"当前表情"和"张嘴"之间快速交替，看起来像在讲话 ----
+    var talkTimer = 0;
+    var talking = false;
+    function startTalk() {
+      if (talking) { return; }
+      talking = true;
+      var open = false;
+      talkTimer = setInterval(function () {
+        open = !open;
+        var openSrc = ASSETS[mood + "_talk"] || ASSETS.talk;
+        img.src = open ? openSrc : (ASSETS[mood] || ASSETS.calm);
+      }, 115);
+    }
+    function stopTalk() {
+      if (!talking) { return; }
+      talking = false;
+      clearInterval(talkTimer);
+      paint();
+    }
+
+    // ---- 待机随机小动作：蹦 / 摇摆 / 歪头 / 左右挪 / 鼓起 / 抖一下 ----
+    var ACTS = ["act-hop", "act-sway", "act-lean", "act-slide", "act-pulse", "act-shake"];
+    function clearActs() { ACTS.forEach(function (a) { body.classList.remove(a); }); }
+    function doAct() {
+      clearActs();
+      var a = ACTS[Math.floor(Math.random() * ACTS.length)];
+      void body.offsetWidth;
+      body.classList.add(a);
+      setTimeout(clearActs, 1900);
+    }
+    var actTimer = 0;
+    function scheduleAct() {
+      clearTimeout(actTimer);
+      actTimer = setTimeout(function () {
+        if (!talking && !document.hidden) { if (Math.random() < 0.3) { wave(1500); } else { doAct(); } }
+        scheduleAct();
+      }, 5000 + Math.random() * 7000);
+    }
+
+    paint();
+    scheduleBlink();
+    scheduleAct();
+    // 一进页面先招手打个招呼（1.2 秒后，等图都解码完）
+    setTimeout(function () { wave(1600); }, 1200);
+    return {
+      startTalk: startTalk,
+      stopTalk: stopTalk,
+      act: doAct,
+      pat: pat,
+      wave: wave,
+      setMood: function (expr) {
+        var m = MOOD_MAP[expr] || "calm";
+        if (m === mood) { return; }
+        mood = m;
+        paint();
+      },
+      say: say,
+      bounce: bounce
+    };
+  })();
+
+  // 让小人跟着智能体的表情走：包一层 setExpression，不去改它原来的逻辑
+  (function hookPetMood() {
+    if (!pet || typeof setExpression !== "function") { return; }
+    var orig = setExpression;
+    setExpression = function (expr) {
+      orig.apply(null, arguments);
+      try { pet.setMood(expr); } catch (e) { }
+    };
+  })();
+
+  // 说话时让小人张嘴：包一层 setStageState，speaking 时开始/停止口型交替
+  (function hookPetTalk() {
+    if (!pet || typeof setStageState !== "function") { return; }
+    var origState = setStageState;
+    setStageState = function (state) {
+      origState.apply(null, arguments);
+      try {
+        if (state === "speaking") { pet.startTalk(); } else { pet.stopTalk(); }
+      } catch (e) { }
+    };
+  })();
+
+  // 调试/截图用：?petbubble=1 直接弹一个气泡出来，方便确认气泡样式
+  (function petDebug() {
+    if (!pet) { return; }
+    // ?petbubble=1 弹气泡；?petwave=1 立刻招手；?petmood=angry 定在某表情；?petact=hop 预览动作
+    if (/[?&]petbubble=1\b/.test(location.search)) {
+      pet.say("你好呀，我是小戴～ 点我可以跟我说话", 60000);
+      var bb = document.getElementById("pet-bubble");
+      if (bb) { bb.style.transition = "none"; bb.style.opacity = "1"; bb.style.transform = "none"; }
+    }
+    if (/[?&]petwave=1\b/.test(location.search)) { pet.wave(60000); }
+    var mm = location.search.match(/[?&]petmood=([a-z]+)/);
+    // 延后执行：init() 里还会 setExpression("neutral")，立刻设会被它覆盖掉（踩过）
+    if (mm && mm[1]) {
+      // 反复设几遍：init() 里的 setExpression("neutral") 如果比我们晚跑会把表情盖回 calm
+      var nSet = 0;
+      var holdMood = setInterval(function () {
+        pet.setMood(mm[1]);
+        if (++nSet >= 12) { clearInterval(holdMood); }
+      }, 150);
+    }
+    if (/[?&]petact=([a-z]+)/.test(location.search)) {
+      var mact = location.search.match(/[?&]petact=([a-z]+)/);
+      setTimeout(function () {
+        var body = document.querySelector(".pet-body");
+        if (body && mact) { body.classList.add("act-" + mact[1]); }
+      }, 300);
+    }
+  })();
+
+  // 调试：?petclick=1 真的对小人派发一次 click，用来端到端验证"摸头"链路
+  (function petClickDebug() {
+    if (!/[?&]petclick=1\b/.test(location.search)) { return; }
+    setTimeout(function () {
+      var b = document.querySelector(".pet-body");
+      if (b) { b.click(); }
+    }, 260);
+  })();
+
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);
   } else {
@@ -2360,6 +2925,44 @@ let speakPoll = null;     // 播完检测定时器
 let meterRAF = 0;         // 音量表 rAF
 let listenSrc = null;
 let listenAnalyser = null;
+
+// RPM 模型如果只带拆分形态（mouthSmileLeft/Right）而没有合并形态（mouthSmile），
+// 情绪引擎引用的合并形态会静默失效；更糟的是眨眼的上限函数每帧读
+// mtAvatar['eyesLookDown'].value —— 条目不存在就直接抛异常、动画帧崩掉。
+// 所以对缺失的合并名：克隆一个正常条目的结构，把写入目标（ms/is）绑到拆分形态上。
+function patchMorphAliases(h) {
+  const ALIAS = {
+    mouthSmile: ['mouthSmileLeft', 'mouthSmileRight'],
+    mouthOpen: ['jawOpen'],
+    eyesClosed: ['eyeBlinkLeft', 'eyeBlinkRight'],
+    eyesLookDown: ['eyeLookDownLeft', 'eyeLookDownRight'],
+    eyesLookUp: ['eyeLookUpLeft', 'eyeLookUpRight']
+  };
+  const refName = Object.keys(h.mtAvatar).find(k => {
+    const m = h.mtAvatar[k];
+    return m && m.ms && m.ms.length;
+  });
+  if (!refName) { return; }
+  Object.entries(ALIAS).forEach(function (pair) {
+    const target = pair[0];
+    let mt = h.mtAvatar[target];
+    if (mt && mt.ms && mt.ms.length) { return; }   // 模型本身有这个形态就不动
+    if (!mt) {
+      mt = Object.assign({}, h.mtAvatar[refName], {
+        ms: [], is: [], fixed: null, system: null, systemd: null,
+        newvalue: null, base: null, v: 0, value: 0, applied: 0,
+        needsUpdate: true, baseline: 0
+      });
+      h.mtAvatar[target] = mt;
+    }
+    pair[1].forEach(function (s) {
+      const src = h.mtAvatar[s];
+      if (src && src.ms && src.ms.length) {
+        for (let i = 0; i < src.ms.length; i++) { mt.ms.push(src.ms[i]); mt.is.push(src.is[i]); }
+      }
+    });
+  });
+}
 
 function mountPoint(view) {
   return document.getElementById(view === 'chat' ? 'avatar3d-chat' : 'avatar3d-call');
@@ -2472,6 +3075,12 @@ window.avatar3d = api;
 async function boot() {
   try {
     if (!window.WebGL2RenderingContext) { return; }
+    // ★ 默认用 2D 立绘：A 的 7 张表情就是角色本人，长相一致、和视频也统一。
+    //   想看 3D 就在地址后加 ?avatar3d=1（示例模型长相和角色不一致，默认不展示）。
+    if (!/[?&](avatar3d=1|avatar=3d)\b/.test(location.search)) {
+      console.info("[avatar3d] 默认 2D 立绘；要看 3D 请加 ?avatar3d=1");
+      return;
+    }
 
     // 模型文件不存在就不启动（probe 用 HEAD，几秒就能出结果）
     const probe = await fetch(GLB_URL, { method: 'HEAD' });
@@ -2490,7 +3099,10 @@ async function boot() {
       cameraView: 'upper',             // 上半身取景，适合对话场景
       cameraRotateEnable: false,
       cameraZoomEnable: false,
-      modelPixelRatio: Math.min(2, window.devicePixelRatio || 1)
+      modelPixelRatio: Math.min(2, window.devicePixelRatio || 1),
+      // TalkingHead 构造函数硬性要求 ttsEndpoint 非空，哪怕我们只用 speakAudio。
+      // 填一个真实存在但永远不会被它调用的地址即可。
+      ttsEndpoint: '/api/tts'
     });
 
     await head.showAvatar({
@@ -2500,6 +3112,7 @@ async function boot() {
       lipsyncLang: 'zh'
     });
     head.setView('upper');
+    patchMorphAliases(head);
 
     // 等中文唇形模块动态 import 完成（最多 3 秒，等不到也能播，只是口型用不上视素）
     const t0 = Date.now();

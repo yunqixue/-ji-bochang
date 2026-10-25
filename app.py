@@ -27,6 +27,8 @@ from src.shared.contracts import error_payload
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(REPO_ROOT, "src", "presentation", "static")
 IMAGES_DIR = os.path.join(REPO_ROOT, "assets", "images")
+# 桌面小人的 Q 版立绘单独放 assets/pet/，用 /pet 挂出去（页面右下角浮层用）
+PET_DIR = os.path.join(REPO_ROOT, "assets", "pet")
 
 
 def _warmup() -> None:
@@ -60,8 +62,10 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="情感交互智能体", version="0.3", lifespan=lifespan)
 
 os.makedirs(os.path.join(STATIC_DIR, "tts"), exist_ok=True)
+os.makedirs(PET_DIR, exist_ok=True)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.mount("/avatar", StaticFiles(directory=IMAGES_DIR), name="avatar")
+app.mount("/pet", StaticFiles(directory=PET_DIR), name="pet")
 
 
 @app.get("/")
@@ -109,6 +113,22 @@ def health() -> dict:
         "tts_last_backend": tts.last_backend(),
         "tts_last_error": tts.last_error(),
     }
+
+
+@app.get("/api/tts")
+def tts_dev(text: str = "", speech_rate: float = 1.0, pitch_shift: float = 0.0):
+    """开发/素材工具：任意文本 → 语音 + 逐词时间戳。
+
+    给切片生成器（scripts/clipgen）和调试用，对话链路不走这里。
+    限 200 字，避免被当成批量合成接口用。
+    """
+    text = (text or "").strip()
+    if not text:
+        return JSONResponse(error_payload("text 为空"))
+    if len(text) > 200:
+        return JSONResponse(error_payload("文本太长（限 200 字）"))
+    audio_url = tts.synthesize(text, speech_rate, pitch_shift)
+    return {"audio_url": audio_url, "lipsync": tts.timings_for(audio_url, text)}
 
 
 @app.post("/api/reset")
@@ -163,7 +183,7 @@ def chat(
             "avatar": avatar,
             # 逐词时间戳（edge-tts WordBoundary），前端 3D 口型同步用；
             # 离线兜底/老缓存没有它时是 None，前端退回音量驱动口型
-            "lipsync": tts.timings_for(audio_url),
+            "lipsync": tts.timings_for(audio_url, response.reply_text),
             "latency_ms": int((time.time() - started) * 1000),
         }
 
