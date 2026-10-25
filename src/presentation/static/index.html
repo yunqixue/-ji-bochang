@@ -2926,6 +2926,44 @@ let meterRAF = 0;         // 音量表 rAF
 let listenSrc = null;
 let listenAnalyser = null;
 
+// RPM 模型如果只带拆分形态（mouthSmileLeft/Right）而没有合并形态（mouthSmile），
+// 情绪引擎引用的合并形态会静默失效；更糟的是眨眼的上限函数每帧读
+// mtAvatar['eyesLookDown'].value —— 条目不存在就直接抛异常、动画帧崩掉。
+// 所以对缺失的合并名：克隆一个正常条目的结构，把写入目标（ms/is）绑到拆分形态上。
+function patchMorphAliases(h) {
+  const ALIAS = {
+    mouthSmile: ['mouthSmileLeft', 'mouthSmileRight'],
+    mouthOpen: ['jawOpen'],
+    eyesClosed: ['eyeBlinkLeft', 'eyeBlinkRight'],
+    eyesLookDown: ['eyeLookDownLeft', 'eyeLookDownRight'],
+    eyesLookUp: ['eyeLookUpLeft', 'eyeLookUpRight']
+  };
+  const refName = Object.keys(h.mtAvatar).find(k => {
+    const m = h.mtAvatar[k];
+    return m && m.ms && m.ms.length;
+  });
+  if (!refName) { return; }
+  Object.entries(ALIAS).forEach(function (pair) {
+    const target = pair[0];
+    let mt = h.mtAvatar[target];
+    if (mt && mt.ms && mt.ms.length) { return; }   // 模型本身有这个形态就不动
+    if (!mt) {
+      mt = Object.assign({}, h.mtAvatar[refName], {
+        ms: [], is: [], fixed: null, system: null, systemd: null,
+        newvalue: null, base: null, v: 0, value: 0, applied: 0,
+        needsUpdate: true, baseline: 0
+      });
+      h.mtAvatar[target] = mt;
+    }
+    pair[1].forEach(function (s) {
+      const src = h.mtAvatar[s];
+      if (src && src.ms && src.ms.length) {
+        for (let i = 0; i < src.ms.length; i++) { mt.ms.push(src.ms[i]); mt.is.push(src.is[i]); }
+      }
+    });
+  });
+}
+
 function mountPoint(view) {
   return document.getElementById(view === 'chat' ? 'avatar3d-chat' : 'avatar3d-call');
 }
@@ -3061,7 +3099,10 @@ async function boot() {
       cameraView: 'upper',             // 上半身取景，适合对话场景
       cameraRotateEnable: false,
       cameraZoomEnable: false,
-      modelPixelRatio: Math.min(2, window.devicePixelRatio || 1)
+      modelPixelRatio: Math.min(2, window.devicePixelRatio || 1),
+      // TalkingHead 构造函数硬性要求 ttsEndpoint 非空，哪怕我们只用 speakAudio。
+      // 填一个真实存在但永远不会被它调用的地址即可。
+      ttsEndpoint: '/api/tts'
     });
 
     await head.showAvatar({
@@ -3071,6 +3112,7 @@ async function boot() {
       lipsyncLang: 'zh'
     });
     head.setView('upper');
+    patchMorphAliases(head);
 
     // 等中文唇形模块动态 import 完成（最多 3 秒，等不到也能播，只是口型用不上视素）
     const t0 = Date.now();

@@ -115,6 +115,22 @@ def health() -> dict:
     }
 
 
+@app.get("/api/tts")
+def tts_dev(text: str = "", speech_rate: float = 1.0, pitch_shift: float = 0.0):
+    """开发/素材工具：任意文本 → 语音 + 逐词时间戳。
+
+    给切片生成器（scripts/clipgen）和调试用，对话链路不走这里。
+    限 200 字，避免被当成批量合成接口用。
+    """
+    text = (text or "").strip()
+    if not text:
+        return JSONResponse(error_payload("text 为空"))
+    if len(text) > 200:
+        return JSONResponse(error_payload("文本太长（限 200 字）"))
+    audio_url = tts.synthesize(text, speech_rate, pitch_shift)
+    return {"audio_url": audio_url, "lipsync": tts.timings_for(audio_url, text)}
+
+
 @app.post("/api/reset")
 def reset(session_id: str = Form(...)) -> dict:
     agent.reset(session_id)

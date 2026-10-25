@@ -92,3 +92,10 @@ experiments/imgtool/bin/
 
 # 口型同步的逐词时间戳（TTS 每次生成都会产出，属运行产物）
 src/presentation/static/tts/*.words.json
+
+# 切片工具的本地备份模型与依赖
+scripts/clipgen/backup/
+scripts/clipgen/node_modules/
+
+# 切片工具的调试帧（中间产物）
+scripts/clipgen/output/frames/
