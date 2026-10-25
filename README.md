@@ -36,7 +36,7 @@
 | 场景定义 | `docs/场景定义.md` |
 | 人设卡 + 危机话术 | `assets/prompts/persona_v1.md`、`assets/prompts/crisis_reply.txt` |
 | **测试结论** | `assets/samples/对话标注表_30条.csv`（30 条人工打分）+ `assets/samples/问题清单.md` |
-| 技术说明 / 关键取舍 | `docs/决策记录.md`（ADR-000 ～ ADR-018，每个决定的背景、候选方案、代价都记着）、`docs/交付说明_C侧.md` |
+| 技术说明 / 关键取舍 | **`docs/技术说明.md`**（架构图 + 一次对话的数据流 + 六个关键选择的代价）、`docs/决策记录.md`（ADR-000 ～ ADR-020，每个决定的背景、候选方案、何时重新评估） |
 | 接口 | `docs/接口契约.md`（代码里的唯一事实来源是 `src/shared/contracts.py`） |
 
 **最快看到效果**：双击 `run.cmd` → 浏览器自动打开 `http://127.0.0.1:8000` → 点"录音"说一句
