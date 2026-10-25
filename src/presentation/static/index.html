@@ -1431,6 +1431,24 @@
      各主题的 `background: …` 简写会把 size/repeat/attachment 一并重置成默认值，
      导致场景图从「铺满」退回「原始大小、平铺」——看起来就是背景位置/画面变了。
      这里在最后统一钉住（动画仍会接管 position 做缓慢漂移）。 */
+  /* ★ 说话时播放同角色情绪片段（静音循环），说完淡出回静态立绘 */
+  .talk-clip {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 50% 18%;
+    opacity: 0;
+    transition: opacity 160ms ease;
+    z-index: 2;
+    pointer-events: none;
+    background: #000;
+  }
+  .stage[data-talking="1"] .talk-clip { opacity: 1; }
+
+  /* ★ 场景模式的铺法必须固定（各主题的 background 简写会重置 size/attachment），
+     否则切光感时背景会跳位置/变形。原则：同优先级下后写的赢，所以放最后。 */
   html[data-scene="1"] body {
     background-size: cover;
     background-position: 50% 42%;
@@ -1481,6 +1499,7 @@
   <div class="stage" id="stage" data-state="idle">
     <div class="stage-bg"><img id="bg-call" alt=""></div>
     <div class="stage-tint"></div>
+    <video class="talk-clip" id="clip-call" muted loop playsinline preload="none"></video>
     <div class="avatar-frame">
       <img class="avatar-img layer-a" id="avatar-a" alt="">
       <img class="avatar-img layer-b" id="avatar-b" alt="">
@@ -1566,6 +1585,7 @@
     <div class="stage" id="stage2" data-state="idle">
       <div class="stage-bg"><img id="bg-chat" alt=""></div>
       <div class="stage-tint"></div>
+      <video class="talk-clip" id="clip-chat" muted loop playsinline preload="none"></video>
       <div class="avatar-frame">
         <img class="avatar-img layer-a" id="avatar-c" alt="">
         <img class="avatar-img layer-b" id="avatar-d" alt="">
@@ -1956,6 +1976,7 @@
     talkFlipTimer = setTimeout(talkFlipTick, next);
   }
   function startTalkFlip() {
+    if (!clipDisabled) { return; }   // 有视频片段时不用图片快切，避免两个效果叠加
     if (talkFlipTimer) { return; }
     talkFlip = true;
     talkFlipTick();
@@ -1972,12 +1993,43 @@
     });
   }
 
+  // 情绪 → 说话片段（同一角色的照片级片段，静音循环播放）
+  var CLIP_MAP = {
+    happy: "clip_happy.webm",
+    sad: "clip_sad.webm",
+    angry: "clip_angry.webm",
+    anxious: "clip_anxious.webm",
+    empathic: "clip_anxious.webm",
+    surprised: "clip_surprised.webm",
+    neutral: "clip_neutral.webm"
+  };
+  // ?noclip=1 时不用视频，退回「静态图/张嘴图快切」
+  var clipDisabled = /[?&]noclip=1\b/.test(location.search);
+
   function setStageState(state) {
     var wasSpeaking = speaking;
     speaking = (state === "speaking");
     [stageEl, stageEl2].forEach(function (el) {
       if (!el) { return; }
       el.setAttribute("data-state", state);
+      el.setAttribute("data-talking", speaking ? "1" : "0");
+      var v = el.querySelector(".talk-clip");
+      if (v) {
+        if (speaking && !clipDisabled) {
+          var curLabel = (layers.call && layers.call.expr) || "neutral";
+          var file = CLIP_MAP[curLabel] || CLIP_MAP.neutral;
+          var want = "/static/avatar/" + file;
+          if (v.getAttribute("data-src") !== want) {
+            v.setAttribute("data-src", want);
+            v.src = want;
+            v.load();
+          }
+          var p = v.play();
+          if (p && p.catch) { p.catch(function () { }); }
+        } else {
+          try { v.pause(); v.currentTime = 0; } catch (e) { }
+        }
+      }
     });
     badgeState.textContent = STATE_CN[state] || state;
     var waveEl = $("voice-wave");
