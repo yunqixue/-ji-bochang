@@ -1443,7 +1443,6 @@
     transition: opacity 300ms ease;   /* 淡入慢一点，衔接不生硬 */
     z-index: 2;
     pointer-events: none;
-    background: #000;
   }
   .stage[data-talking="1"] .talk-clip { opacity: 1; }
 
@@ -2015,7 +2014,8 @@
     [stageEl, stageEl2].forEach(function (el) {
       if (!el) { return; }
       el.setAttribute("data-state", state);
-      el.setAttribute("data-talking", speaking ? "1" : "0");
+      // 只有真的在播片段时才亮出视频层；否则保持 0，不能盖住立绘
+      el.setAttribute("data-talking", (speaking && !clipDisabled) ? "1" : "0");
       var v = el.querySelector(".talk-clip");
       if (v) {
         if (speaking && !clipDisabled) {
