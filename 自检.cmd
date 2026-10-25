@@ -1,6 +1,7 @@
 @echo off
 chcp 65001 >nul
 cd /d "%~dp0"
+set "PYTHONPATH=%~dp0..\.pylibs;%~dp0;%PYTHONPATH%"
 set "PYTHONUTF8=1"
 set "PYTHONIOENCODING=utf-8"
 

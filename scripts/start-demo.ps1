@@ -37,6 +37,15 @@ if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
     Stop-WithMessage 'python not found in PATH.'
 }
 
+# faster-whisper (and av / ctranslate2 / tokenizers) live only in ..\.pylibs,
+# not in site-packages, so the server needs PYTHONPATH to have working ASR.
+# Without this /api/health reports asr=false and the mic demo silently degrades.
+$pyLibs = Join-Path (Split-Path $root -Parent) '.pylibs'
+if (Test-Path $pyLibs) {
+    $env:PYTHONPATH = $pyLibs + ';' + $root + ';' + $env:PYTHONPATH
+    Write-Host "PYTHONPATH includes $pyLibs"
+}
+
 $server = $null
 $inUse = (Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | Measure-Object).Count
 
