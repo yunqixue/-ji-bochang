@@ -1976,7 +1976,7 @@
     talkFlipTimer = setTimeout(talkFlipTick, next);
   }
   function startTalkFlip() {
-    if (!clipDisabled) { return; }   // 有视频片段时不用图片快切，避免两个效果叠加
+    if (!mouthFlipEnabled) { return; }   // 默认不切整图，画面保持不动
     if (talkFlipTimer) { return; }
     talkFlip = true;
     talkFlipTick();
@@ -2003,8 +2003,11 @@
     surprised: "clip_surprised.mp4",
     neutral: "clip_neutral.mp4"
   };
-  // ?noclip=1 时不用视频，退回「静态图/张嘴图快切」
-  var clipDisabled = /[?&]noclip=1\b/.test(location.search);
+  // 默认：说话时不切任何整图 —— 张开图/视频片段和静态立绘不是像素级对齐，
+  // 一换整张画面就会「跳」。默认保持静态立绘不动，靠音量推近/波形/字幕体现"在说话"。
+  // 想要口型动画再显式开：?mouthflip=1（静态图↔张嘴图快切）或 ?clips=1（播情绪视频）
+  var clipDisabled = !/[?&]clips=1\b/.test(location.search);
+  var mouthFlipEnabled = /[?&]mouthflip=1\b/.test(location.search);
 
   function setStageState(state) {
     var wasSpeaking = speaking;
