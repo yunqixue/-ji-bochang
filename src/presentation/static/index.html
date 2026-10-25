@@ -1940,10 +1940,35 @@
   }
 
   // 开始/停止说话时，在「张嘴图」和「静态图」之间切一次
+  // 说话时：静态图 ↔ 张嘴图 快速交替，做出"一张一合"的嘴部动作。
+  // 一直停在张嘴图上会很假（像嘴定住了），高频切换才像在说话。
+  var talkFlip = false;
+  var talkFlipTimer = null;
+  function talkFlipTick() {
+    talkFlip = !talkFlip;
+    ["call", "chat"].forEach(function (key) {
+      var layer = layers[key];
+      // 直接换当前图，不走 refreshImages（避免每次重建 layer 状态）
+      if (layer.expr) { putImage(layer, layer.expr, talkFlip); }
+    });
+    // 间隔带随机抖动（90~190ms），比固定频率更像自然说话
+    var next = 90 + Math.random() * 100;
+    talkFlipTimer = setTimeout(talkFlipTick, next);
+  }
+  function startTalkFlip() {
+    if (talkFlipTimer) { return; }
+    talkFlip = true;
+    talkFlipTick();
+  }
+  function stopTalkFlip() {
+    if (talkFlipTimer) { clearTimeout(talkFlipTimer); talkFlipTimer = null; }
+    talkFlip = false;
+  }
+
   function refreshImages() {
     ["call", "chat"].forEach(function (key) {
       var layer = layers[key];
-      if (layer.expr) { putImage(layer, layer.expr, speaking); }
+      if (layer.expr) { putImage(layer, layer.expr, speaking && talkFlip); }
     });
   }
 
@@ -1957,7 +1982,10 @@
     badgeState.textContent = STATE_CN[state] || state;
     var waveEl = $("voice-wave");
     if (waveEl) { waveEl.classList.toggle("on", speaking); }
-    if (wasSpeaking !== speaking) { refreshImages(); }
+    if (wasSpeaking !== speaking) {
+      if (speaking) { startTalkFlip(); } else { stopTalkFlip(); }
+      refreshImages();
+    }
   }
 
   function setMeters(valence, arousal) {
