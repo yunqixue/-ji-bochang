@@ -1431,6 +1431,23 @@
      各主题的 `background: …` 简写会把 size/repeat/attachment 一并重置成默认值，
      导致场景图从「铺满」退回「原始大小、平铺」——看起来就是背景位置/画面变了。
      这里在最后统一钉住（动画仍会接管 position 做缓慢漂移）。 */
+  /* ★ 说话时播放同角色情绪片段（静音循环），说完淡出回静态立绘 */
+  .talk-clip {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 50% 18%;
+    opacity: 0;
+    transition: opacity 300ms ease;   /* 淡入慢一点，衔接不生硬 */
+    z-index: 2;
+    pointer-events: none;
+  }
+  .stage[data-talking="1"] .talk-clip { opacity: 1; }
+
+  /* ★ 场景模式的铺法必须固定（各主题的 background 简写会重置 size/attachment），
+     否则切光感时背景会跳位置/变形。原则：同优先级下后写的赢，所以放最后。 */
   html[data-scene="1"] body {
     background-size: cover;
     background-position: 50% 42%;
@@ -1481,6 +1498,7 @@
   <div class="stage" id="stage" data-state="idle">
     <div class="stage-bg"><img id="bg-call" alt=""></div>
     <div class="stage-tint"></div>
+    <video class="talk-clip" id="clip-call" muted loop playsinline preload="none"></video>
     <div class="avatar-frame">
       <img class="avatar-img layer-a" id="avatar-a" alt="">
       <img class="avatar-img layer-b" id="avatar-b" alt="">
@@ -1566,6 +1584,7 @@
     <div class="stage" id="stage2" data-state="idle">
       <div class="stage-bg"><img id="bg-chat" alt=""></div>
       <div class="stage-tint"></div>
+      <video class="talk-clip" id="clip-chat" muted loop playsinline preload="none"></video>
       <div class="avatar-frame">
         <img class="avatar-img layer-a" id="avatar-c" alt="">
         <img class="avatar-img layer-b" id="avatar-d" alt="">
@@ -1940,12 +1959,54 @@
   }
 
   // 开始/停止说话时，在「张嘴图」和「静态图」之间切一次
+  // 说话时：静态图 ↔ 张嘴图 快速交替，做出"一张一合"的嘴部动作。
+  // 一直停在张嘴图上会很假（像嘴定住了），高频切换才像在说话。
+  var talkFlip = false;
+  var talkFlipTimer = null;
+  function talkFlipTick() {
+    talkFlip = !talkFlip;
+    ["call", "chat"].forEach(function (key) {
+      var layer = layers[key];
+      // 直接换当前图，不走 refreshImages（避免每次重建 layer 状态）
+      if (layer.expr) { putImage(layer, layer.expr, talkFlip); }
+    });
+    // 间隔带随机抖动（90~190ms），比固定频率更像自然说话
+    var next = 90 + Math.random() * 100;
+    talkFlipTimer = setTimeout(talkFlipTick, next);
+  }
+  function startTalkFlip() {
+    if (!mouthFlipEnabled) { return; }   // 默认不切整图，画面保持不动
+    if (talkFlipTimer) { return; }
+    talkFlip = true;
+    talkFlipTick();
+  }
+  function stopTalkFlip() {
+    if (talkFlipTimer) { clearTimeout(talkFlipTimer); talkFlipTimer = null; }
+    talkFlip = false;
+  }
+
   function refreshImages() {
     ["call", "chat"].forEach(function (key) {
       var layer = layers[key];
-      if (layer.expr) { putImage(layer, layer.expr, speaking); }
+      if (layer.expr) { putImage(layer, layer.expr, speaking && talkFlip); }
     });
   }
+
+  // 情绪 → 说话片段（同一角色的照片级片段，静音循环播放）
+  var CLIP_MAP = {
+    happy: "clip_happy.mp4",
+    sad: "clip_sad.mp4",
+    angry: "clip_angry.mp4",
+    anxious: "clip_anxious.mp4",
+    empathic: "clip_anxious.mp4",
+    surprised: "clip_surprised.mp4",
+    neutral: "clip_neutral.mp4"
+  };
+  // 默认：说话时不切任何整图 —— 张开图/视频片段和静态立绘不是像素级对齐，
+  // 一换整张画面就会「跳」。默认保持静态立绘不动，靠音量推近/波形/字幕体现"在说话"。
+  // 想要口型动画再显式开：?mouthflip=1（静态图↔张嘴图快切）或 ?clips=1（播情绪视频）
+  var clipDisabled = !/[?&]clips=1\b/.test(location.search);
+  var mouthFlipEnabled = /[?&]mouthflip=1\b/.test(location.search);
 
   function setStageState(state) {
     var wasSpeaking = speaking;
@@ -1953,11 +2014,33 @@
     [stageEl, stageEl2].forEach(function (el) {
       if (!el) { return; }
       el.setAttribute("data-state", state);
+      // 只有真的在播片段时才亮出视频层；否则保持 0，不能盖住立绘
+      el.setAttribute("data-talking", (speaking && !clipDisabled) ? "1" : "0");
+      var v = el.querySelector(".talk-clip");
+      if (v) {
+        if (speaking && !clipDisabled) {
+          var curLabel = (layers.call && layers.call.expr) || "neutral";
+          var file = CLIP_MAP[curLabel] || CLIP_MAP.neutral;
+          var want = "/static/avatar/" + file;
+          if (v.getAttribute("data-src") !== want) {
+            v.setAttribute("data-src", want);
+            v.src = want;
+            v.load();
+          }
+          var p = v.play();
+          if (p && p.catch) { p.catch(function () { }); }
+        } else {
+          try { v.pause(); v.currentTime = 0; } catch (e) { }
+        }
+      }
     });
     badgeState.textContent = STATE_CN[state] || state;
     var waveEl = $("voice-wave");
     if (waveEl) { waveEl.classList.toggle("on", speaking); }
-    if (wasSpeaking !== speaking) { refreshImages(); }
+    if (wasSpeaking !== speaking) {
+      if (speaking) { startTalkFlip(); } else { stopTalkFlip(); }
+      refreshImages();
+    }
   }
 
   function setMeters(valence, arousal) {

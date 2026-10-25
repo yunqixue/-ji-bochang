@@ -99,3 +99,6 @@ scripts/clipgen/node_modules/
 
 # 切片工具的调试帧（中间产物）
 scripts/clipgen/output/frames/
+
+# 例外：说话片段（同角色情绪视频，单个 < 1.2MB，演示必需）
+!src/presentation/static/avatar/clip_*.mp4
