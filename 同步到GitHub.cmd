@@ -5,7 +5,7 @@ cd /d "%~dp0"
 echo.
 echo   ================================================
 echo    把本地 main 推送到 GitHub 私有仓库
-echo    github.com/yunqixue/ji-bochang
+echo    github.com/yunqixue/-ji-bochang
 echo   ================================================
 echo.
 echo   如果弹出登录框：
