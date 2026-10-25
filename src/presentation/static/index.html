@@ -3075,10 +3075,10 @@ window.avatar3d = api;
 async function boot() {
   try {
     if (!window.WebGL2RenderingContext) { return; }
-    // ★ 应急开关：地址加 ?no3d=1（或 ?avatar3d=0）强制用 2D 立绘。
-    //   3D 效果不理想或现场显卡不给力时，用它一秒钟退回 2D，不用改代码、不用重开服务。
-    if (/[?&](no3d=1|avatar3d=0)\b/.test(location.search)) {
-      console.info("[avatar3d] 已用 ?no3d=1 强制关闭，使用 2D 立绘");
+    // ★ 默认用 2D 立绘：A 的 7 张表情就是角色本人，长相一致、和视频也统一。
+    //   想看 3D 就在地址后加 ?avatar3d=1（示例模型长相和角色不一致，默认不展示）。
+    if (!/[?&](avatar3d=1|avatar=3d)\b/.test(location.search)) {
+      console.info("[avatar3d] 默认 2D 立绘；要看 3D 请加 ?avatar3d=1");
       return;
     }
 
