@@ -2638,6 +2638,9 @@
       talk: "/pet/q_talk.webp",
       happy_talk: "/pet/q_happy_talk.webp",
       sad_talk: "/pet/q_sad_talk.webp",
+      angry: "/pet/q_angry.webp",
+      angry_talk: "/pet/q_angry_talk.webp",
+      wave: "/pet/q_wave.webp",
     };
     var ready = {};
     Object.keys(ASSETS).forEach(function (k) {
@@ -2654,12 +2657,28 @@
     // 智能体表情 → 小人表情
     var MOOD_MAP = {
       happy: "happy", surprised: "surprised",
-      sad: "sad", angry: "sad",
+      sad: "sad", angry: "angry",
       neutral: "calm", anxious: "calm", empathic: "calm"
     };
 
+    // 临时覆盖图（招手）：非空时优先显示它，用于"挥手打招呼"这种一次性动作
+    var override = "";
+    var waveTimer = 0;
+    var waveUntil = 0;
+    function wave(ms) {
+      var dur = ms || 1500;
+      var until = Date.now() + dur;
+      override = "wave";
+      paint();
+      // 已经有一次更长的招手在跑时，不要被短的招手提前收掉（踩过：进场问候把招手掐断）
+      if (until <= waveUntil) { return; }
+      waveUntil = until;
+      clearTimeout(waveTimer);
+      waveTimer = setTimeout(function () { override = ""; waveUntil = 0; paint(); }, dur);
+    }
+
     function paint() {
-      var key = blinking ? "blink" : mood;
+      var key = override || (blinking ? "blink" : mood);
       var url = ASSETS[key] || ASSETS.calm;
       if (img.getAttribute("src") !== url) { img.src = url; }
     }
@@ -2784,7 +2803,7 @@
     function scheduleAct() {
       clearTimeout(actTimer);
       actTimer = setTimeout(function () {
-        if (!talking && !document.hidden) { doAct(); }
+        if (!talking && !document.hidden) { if (Math.random() < 0.3) { wave(1500); } else { doAct(); } }
         scheduleAct();
       }, 5000 + Math.random() * 7000);
     }
@@ -2792,11 +2811,14 @@
     paint();
     scheduleBlink();
     scheduleAct();
+    // 一进页面先招手打个招呼（1.2 秒后，等图都解码完）
+    setTimeout(function () { wave(1600); }, 1200);
     return {
       startTalk: startTalk,
       stopTalk: stopTalk,
       act: doAct,
       pat: pat,
+      wave: wave,
       setMood: function (expr) {
         var m = MOOD_MAP[expr] || "calm";
         if (m === mood) { return; }
@@ -2833,17 +2855,28 @@
   // 调试/截图用：?petbubble=1 直接弹一个气泡出来，方便确认气泡样式
   (function petDebug() {
     if (!pet) { return; }
+    // ?petbubble=1 弹气泡；?petwave=1 立刻招手；?petmood=angry 定在某表情；?petact=hop 预览动作
     if (/[?&]petbubble=1\b/.test(location.search)) {
       pet.say("你好呀，我是小戴～ 点我可以跟我说话", 60000);
-      // 截图/调试时立刻显示，不等过渡动画
       var bb = document.getElementById("pet-bubble");
       if (bb) { bb.style.transition = "none"; bb.style.opacity = "1"; bb.style.transform = "none"; }
     }
+    if (/[?&]petwave=1\b/.test(location.search)) { pet.wave(60000); }
+    var mm = location.search.match(/[?&]petmood=([a-z]+)/);
+    // 延后执行：init() 里还会 setExpression("neutral")，立刻设会被它覆盖掉（踩过）
+    if (mm && mm[1]) {
+      // 反复设几遍：init() 里的 setExpression("neutral") 如果比我们晚跑会把表情盖回 calm
+      var nSet = 0;
+      var holdMood = setInterval(function () {
+        pet.setMood(mm[1]);
+        if (++nSet >= 12) { clearInterval(holdMood); }
+      }, 150);
+    }
     if (/[?&]petact=([a-z]+)/.test(location.search)) {
-      var m = location.search.match(/[?&]petact=([a-z]+)/);
+      var mact = location.search.match(/[?&]petact=([a-z]+)/);
       setTimeout(function () {
         var body = document.querySelector(".pet-body");
-        if (body && m) { body.classList.add("act-" + m[1]); }
+        if (body && mact) { body.classList.add("act-" + mact[1]); }
       }, 300);
     }
   })();
