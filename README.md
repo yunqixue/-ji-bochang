@@ -8,6 +8,42 @@
 
 ---
 
+## 一页看结论（给评审 / 负责人）
+
+**是什么**：一个能在浏览器里说话的情感陪伴智能体。用户语音说一句话 → 本地识别情绪 →
+以固定人设（8–10 岁女孩"小雨"）多轮回应 → 合成语音 → **屏幕上的角色同步换表情、张嘴说话**，
+右下角还有一个会挥手、能被摸头的 Q 版小人。
+
+**实测数据**（30 条真实对话 + 自动化测试，全部可复现）：
+
+| 指标 | 结果 | 怎么验 |
+|---|---|---|
+| **像不像人**（A 人工打分，1–5） | **4.0 / 5** | `assets/samples/对话标注表_30条.csv` |
+| 客服腔（"我理解您的感受"这类） | **0 / 30** | 同上，逐条标注 |
+| 说教（没被要建议却给方案） | 2 / 30（已按清单改掉 2 句） | 同上 + `assets/samples/问题清单.md` |
+| 接住情绪（第一句先回应情绪） | **30 / 30** | 同上 |
+| 情绪识别准确率 | **28 / 30 = 93%** | 同上 |
+| 安全红线（自伤/极端情绪） | **4 / 4 全部走危机话术，均含 12356** | `assets/prompts/crisis_reply.txt` |
+| 多轮记忆 | ✅ 第 9 轮仍能复述前面说的事 | 现场可验：连着说 3 轮再问"你还记得我说过什么吗" |
+| 断网兜底命中率 | **44 / 44 = 100%** | `python experiments/test_fallback.py` |
+| 正常模式响应 | 3.1–4.7 秒/句 | `python experiments/smoke_test.py` |
+| 兜底模式响应 | 0.2–0.5 秒/句，100% 有声音 | 双击 `启动_离线保险.cmd` 走 8001 |
+
+**交付物**：本代码仓库 + 两份演示录屏（位置和大小登记在 `data/MANIFEST.md`）+ 文档：
+
+| 交付材料 | 文件 |
+|---|---|
+| 场景定义 | `docs/场景定义.md` |
+| 人设卡 + 危机话术 | `assets/prompts/persona_v1.md`、`assets/prompts/crisis_reply.txt` |
+| **测试结论** | `assets/samples/对话标注表_30条.csv`（30 条人工打分）+ `assets/samples/问题清单.md` |
+| 技术说明 / 关键取舍 | `docs/决策记录.md`（ADR-000 ～ ADR-018，每个决定的背景、候选方案、代价都记着）、`docs/交付说明_C侧.md` |
+| 接口 | `docs/接口契约.md`（代码里的唯一事实来源是 `src/shared/contracts.py`） |
+
+**最快看到效果**：双击 `run.cmd` → 浏览器自动打开 `http://127.0.0.1:8000` → 点"录音"说一句
+"我今天面试又没过" —— 她会换难过/共情的表情、张嘴说话，右下角小人跟着变脸。
+
+---
+
 ## 30 秒跑起来
 
 ```powershell
@@ -35,6 +71,13 @@ python experiments/download_asr_model.py
 
 > 改了前端页面（`index.html`）要按 **Ctrl + F5 硬刷新**，否则浏览器会用缓存里的旧页面。
 > 改了后端代码必须重启服务。两个都是「改了没变化」的头号原因。
+
+> **如果手动用 `python -m uvicorn app:app` 启服务**：先确认 Python 能找到依赖。
+> 本机把 `faster-whisper`（含 `ctranslate2` / `tokenizers` / `av`）装在 **`..\.pylibs`**，
+> 不在 `site-packages` —— 手动启动要先 `set "PYTHONPATH=<项目>\..\.pylibs"`，
+> 否则服务能跑、话能说，但 **`/api/health` 的 `asr` 会是 `false`，麦克风静默不可用**。
+> 双击 `run.cmd` / `启动_离线保险.cmd` / `自检.cmd` 已经自动设好了，不用管。
+> 完整排查见 `docs/疑难排查.md` 第 17 节。
 
 **先自检再排查**：双击 `自检.cmd`（等价 `python experiments/check_env.py`），一条命令看清缺什么。
 
@@ -100,9 +143,9 @@ edge-tts 能给逐字信息时 `estimated=false`；命中**预演生成的老音
 
 | 层 | 是什么 | 什么时候在 | 出问题怎么办 |
 |---|---|---|---|
-| ① 3D 会说话的头像 | Three.js + TalkingHead 加载 `src/presentation/static/avatar/xiaoyu.glb`，带眨眼 / 呼吸 / 头部微动 / 口型 | 浏览器支持 WebGL2 且模型文件在 | 地址加 **`?no3d=1`** 直接关掉，自动回到 ② |
-| ② 2D 立绘表情 | `assets/images/expr_*.webp` 按情绪换图；有 `expr_*_talk.webp` 就自动做口型 | 一直兜底 | — |
-| ③ Q 版小人（右下角） | 128px 的金发小水手，**完全独立于上面两层** | 一直可见 | 点它右上角 `×` 关掉 |
+| ① 3D 会说话的头像 | Three.js + TalkingHead 加载 `src/presentation/static/avatar/xiaoyu.glb`，带眨眼 / 呼吸 / 头部微动 | **默认关闭**：地址加 `?avatar3d=1` 才会加载（模型缺口型通道，晃头不说话，评估后决定演示不用它） | 什么都不用做，默认就是 2D；想试 3D 才加参数 |
+| ② 2D 立绘表情 | `assets/images/expr_*.webp` 按情绪换图；**7 种情绪都配了 `expr_*_talk.webp` 张嘴图**，说话时自动交替，形成口型 | 一直兜底 | — |
+| ③ Q 版小人（右下角） | 128px 的金发小水手，**完全独立于上面两层**，同样会换表情、张嘴、挥手 | 一直可见 | 点它右上角 `×` 关掉 |
 
 ### Q 版小人会在什么时候做什么
 
@@ -140,6 +183,7 @@ edge-tts 能给逐字信息时 `estimated=false`；命中**预演生成的老音
 ├── start-demo.cmd               双击：起服务 + 开临时公网隧道（给不在场的人看）
 ├── push.cmd / pull.cmd          双击：上传 / 下载
 ├── 强制上传.cmd                  双击：push 失败时的备用上传（先 pull 再 push）
+├── 同步到GitHub.cmd              双击：把同一份仓库额外镜像到 GitHub（可选，只有 B 的机器配了令牌）
 ├── app.py                       后端入口，把三层串起来
 ├── desktop_pet.py               桌面小人（PySide6 独立窗口，备选方案）
 ├── requirements.txt             依赖清单
@@ -156,7 +200,8 @@ edge-tts 能给逐字信息时 `estimated=false`；命中**预演生成的老音
 ├── assets/samples/              测试用例、30 条对话标注表、体验问题清单
 ├── experiments/                 自检、冒烟测试、评测、预演、小人生图与抠图脚本
 ├── logs/                        对话日志 chat.jsonl（不进仓库）
-└── data/                        数据集与模型（不进仓库，见 MANIFEST.md）
+└── data/                        数据集与模型、交付录屏（不进仓库，见 MANIFEST.md）
+                                 其中 data/videos/ 是两份交付录屏的压缩版（各约 3MB）
 ```
 
 ---
@@ -275,7 +320,7 @@ python experiments/prewarm_demo --file docs/演示脚本.txt
 | `?voice=0.6` | 把音量固定成 0.6（检查"随声音推近"的视觉效果，不依赖真实音频） |
 | `?voiceauto=1` | 音量自动起伏 —— **这台机器没声音时也能看到动效对不对** |
 | `?bg=房间` | 换背景场景（C 留的接口）：需要 `assets/images/bg_房间.webp`，没有图就自动回落到"当前表情虚化" |
-| `?no3d=1` | **关掉 3D 头像**，只用 2D 立绘（3D 出问题时的应急开关，等价 `?avatar3d=0`） |
+| `?avatar3d=1` | **打开 3D 头像**（默认关闭：模型没有口型通道，演示不用它）；`?no3d=1` 仍可强制关掉 |
 | `?petmood=angry` | 把小人定在某个表情（`calm/happy/sad/surprised/angry`） |
 | `?petwave=1` | 小人一直保持挥手图 |
 | `?petbubble=1` | 直接弹出对话气泡（看气泡样式，不用真说话） |
@@ -330,8 +375,8 @@ Get-Content logs\chat.jsonl | ForEach-Object {
 | 队友机器装不上 faster-whisper | Python 版本不一致（3.14 无轮子） | **演示统一跑在 B 的机器上**（Python 3.10） |
 | 访问 `/` 看到提示页 | 前端页面文件缺失 | 正常兜底，页面存在后自动生效 |
 | 提交报 `Author identity unknown` | 没设 git 身份 | 见 `docs/疑难排查.md` 第 3 节 |
-| 说话时口型不动 | `assets/images/` 里没有 `expr_*_talk.webp`（张嘴图） | A 出 1 张就自动生效，前端不用改 |
-| 3D 头像在晃但嘴不动 | `xiaoyu.glb` 可能没带 Oculus Visemes 变形通道（模型没口型骨骼） | 演示前加 **`?no3d=1`** 关掉 3D；2D 立绘和 Q 版小人的口型都是好的，不影响演示（C 在查） |
+| 说话时口型不动 | ~~`assets/images/` 里没有张嘴图~~ **已解决**：A 于 10-25 补了 7 张 `expr_*_talk.webp`，7 种情绪都有张嘴帧 | 无需处理；要加新情绪记得同时出 `_talk` 图 |
+| 3D 头像在晃但嘴不动 | `xiaoyu.glb` 没带 Oculus Visemes / ARKit 口型通道，喂什么数据都不会动 | **已决定不用 3D**：默认关闭，要试才加 `?avatar3d=1`；演示只用 2D 立绘 + Q 版小人 |
 | Q 版小人挡住按钮 | 浮层定位在右下角 | 已挪到 `right:200px; bottom:152px`；也可以**用鼠标直接拖走**，或点 `×` 关掉 |
 | 小人图上有「AI 生成」角标 | 生图服务自带水印 | 生成脚本只保留最大连通块，角标作为独立小块被一起去掉；换新图后重跑脚本即可 |
 | 小人的图有白边 / 背景没抠干净 | 抠图容差不对 | `make_cutout.py --tol` 调大或换 `--method grabcut` |
